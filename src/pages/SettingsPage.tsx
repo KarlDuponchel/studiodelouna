@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronUp, Download, LogOut, Pencil, Plus, Star } from 'lucide-react'
+import { ChevronDown, ChevronUp, Download, LogOut, Pencil, Plus, ShieldCheck, Star } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
@@ -27,6 +27,7 @@ export default function SettingsPage() {
   const { signOut, session } = useAuth()
   const online = useOnline()
   const [exporting, setExporting] = useState(false)
+  const totp = session?.user.factors?.find((f) => f.factor_type === 'totp' && f.status === 'verified')
 
   async function download() {
     setExporting(true)
@@ -57,6 +58,18 @@ export default function SettingsPage() {
       <Section title="Compte">
         <Card className="divide-y divide-line">
           <div className="px-4 py-3 text-sm text-muted">Connectée : {session?.user.email}</div>
+          {totp && (
+            <div className="flex items-start gap-3 px-4 py-3 text-sm">
+              <ShieldCheck size={18} className="mt-0.5 shrink-0 text-accent" />
+              <div>
+                <p className="font-medium">Double authentification activée</p>
+                <p className="text-muted">
+                  Depuis le {format(parseISO(totp.created_at), 'd MMMM yyyy', { locale: fr })}. En cas de perte du téléphone, la réinitialiser
+                  depuis le tableau de bord Supabase.
+                </p>
+              </div>
+            </div>
+          )}
           <button onClick={download} disabled={!online || exporting} className="flex min-h-12 w-full items-center gap-3 px-4 text-left transition-colors active:bg-bg disabled:opacity-50">
             <Download size={18} /> {exporting ? 'Export en cours…' : 'Télécharger une sauvegarde'}
           </button>

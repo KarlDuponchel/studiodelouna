@@ -15,7 +15,7 @@ npm run dev
 ## Mise en place de Supabase (une seule fois)
 
 1. **Créer le projet** en région `eu-west-3` (Paris).
-2. **Schéma** : SQL Editor → coller et exécuter, dans l'ordre, les fichiers de [`supabase/migrations/`](supabase/migrations) (`0001_init.sql`, `0002_supplements.sql`, puis `0003_reschedule_status.sql`).
+2. **Schéma** : SQL Editor → coller et exécuter, dans l'ordre, les fichiers de [`supabase/migrations/`](supabase/migrations) (`0001_init.sql`, `0002_supplements.sql`, `0003_reschedule_status.sql`). La `0004_require_mfa.sql` se passe en dernier, une fois la double authentification activée sur le compte (voir [Sécurité](#sécurité)).
 3. **Bloquer les inscriptions** : Authentication → Sign In / Providers → décocher *Allow new users to sign up*.
 4. **Créer le compte unique** : Authentication → Users → *Add user* → *Create new user* avec l'adresse de la cliente. Le mot de passe est inutile, mais Supabase en exige un : en générer un long et aléatoire. Cocher *Auto Confirm User*.
 5. **Recevoir un code au lieu d'un lien** : Authentication → Emails → modèle *Magic Link*, remplacer le contenu par exemple par :
@@ -36,6 +36,11 @@ Les statuts (Prévu, Réalisé, Annulé, Absente) et les modes de paiement (CB, 
 - Les inscriptions sont désactivées dans Supabase, et l'app appelle `signInWithOtp` avec `shouldCreateUser: false`.
 - RLS sur toutes les tables : une ligne n'est visible et modifiable que par son `user_id`.
 - Le rôle `anon` n'a accès qu'à la fonction `ping()`.
+- **Double authentification obligatoire** : après le code mail, l'app exige le code d'une app d'authentification (TOTP : Mots de passe d'iOS, Google Authenticator…). À la première connexion, elle fait enregistrer le compte dans cette app.
+  - La migration `0004_require_mfa.sql` l'impose aussi côté base : sans le niveau `aal2`, aucune ligne n'est lisible ni modifiable, même en appelant l'API directement.
+  - **Ordre de mise en place** : déployer l'app, se connecter et activer la 2FA, *puis* exécuter `0004_require_mfa.sql`.
+  - **Téléphone perdu** : Supabase → Authentication → Users → le compte → supprimer le facteur MFA. À la connexion suivante, l'app propose d'en enregistrer un nouveau.
+- **En-têtes HTTP** ([`vercel.json`](vercel.json)) : CSP stricte (aucun script externe ni inline, connexions limitées à Supabase), HSTS, interdiction d'affichage en iframe, `nosniff`, `Referrer-Policy`, `Permissions-Policy`.
 
 ## Éviter la mise en pause (offre gratuite)
 
