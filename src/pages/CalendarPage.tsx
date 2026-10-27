@@ -10,7 +10,7 @@ import { Plus } from 'lucide-react'
 import AppointmentSheet, { type SheetTarget } from '../components/AppointmentSheet'
 import { useAppointments, useDaysOff, useMoveAppointment, useServices, useStatuses } from '../lib/queries'
 import type { Appointment } from '../lib/types'
-import { appointmentTotal, formatEur, toDateInput } from '../lib/format'
+import { AGENDA_END_HOUR, AGENDA_START_HOUR, appointmentTotal, formatEur, toDateInput } from '../lib/format'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import { useOnline } from '../lib/useOnline'
 import { useSwipeNavigation } from '../lib/useSwipeNavigation'
@@ -99,8 +99,8 @@ export default function CalendarPage() {
           buttonText={{ today: "Aujourd'hui", day: 'Jour', week: 'Semaine', month: 'Mois' }}
           height="100%"
           allDaySlot={false}
-          slotMinTime="07:00:00"
-          slotMaxTime="21:00:00"
+          slotMinTime={`${String(AGENDA_START_HOUR).padStart(2, '0')}:00:00`}
+          slotMaxTime={`${AGENDA_END_HOUR}:00:00`}
           scrollTime={initialScrollTime}
           // Garde la position de défilement en changeant de période ou de vue
           scrollTimeReset={false}

@@ -3,6 +3,8 @@ export type Service = {
   name: string
   price: number
   duration_min: number | null
+  /** Montant d'un pas de supplément pour cette pose (proposé 1× et 2× à la clôture) */
+  supplement_step: number | null
   color: string
   sort_order: number
   archived: boolean
@@ -14,6 +16,8 @@ export type Status = {
   color: string
   counts_in_revenue: boolean
   is_default: boolean
+  /** Sur l'accueil, ouvre la reprogrammation au lieu de clôturer (ex. Absente) */
+  reschedule: boolean
   sort_order: number
   archived: boolean
 }
@@ -53,6 +57,7 @@ export type Appointment = {
   status_id: string | null
   payment_method_id: string | null
   custom_price: number | null
+  supplement: number
   notes: string | null
   client: { instagram: string | null } | null
   appointment_services: AppointmentService[]
@@ -68,6 +73,7 @@ export type AppointmentInput = {
   status_id: string | null
   payment_method_id: string | null
   custom_price: number | null
+  supplement: number
   notes: string | null
   service_ids: string[]
 }

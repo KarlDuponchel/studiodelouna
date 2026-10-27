@@ -228,6 +228,7 @@ function ServicesSection() {
               <div className="text-sm text-muted">
                 {formatEur(Number(s.price))}
                 {s.duration_min ? ` · ${formatDuration(s.duration_min)}` : ''}
+                {s.supplement_step ? ` · suppl. ${formatEur(Number(s.supplement_step))}` : ''}
               </div>
             </div>
           </div>
@@ -245,9 +246,12 @@ function ServiceForm({ initial, onDone }: { initial: Partial<Service>; onDone: (
   const [name, setName] = useState(initial.name ?? '')
   const [price, setPrice] = useState(initial.price != null ? String(initial.price) : '')
   const [duration, setDuration] = useState(initial.duration_min ? String(initial.duration_min) : '')
+  const [supplement, setSupplement] = useState(initial.supplement_step != null ? String(initial.supplement_step) : '')
   const [color, setColor] = useState(initial.color ?? PALETTE[0])
   const priceNum = Number(price.replace(',', '.'))
+  const supplementNum = Number(supplement.replace(',', '.'))
   const canSave = name.trim() !== '' && price !== '' && !isNaN(priceNum) && priceNum >= 0
+    && (supplement === '' || (!isNaN(supplementNum) && supplementNum > 0))
 
   async function submit() {
     await save.mutateAsync({
@@ -255,6 +259,7 @@ function ServiceForm({ initial, onDone }: { initial: Partial<Service>; onDone: (
       name: name.trim(),
       price: priceNum,
       duration_min: duration ? Number(duration) : null,
+      supplement_step: supplement ? supplementNum : null,
       color,
       sort_order: initial.sort_order,
     })
@@ -274,6 +279,9 @@ function ServiceForm({ initial, onDone }: { initial: Partial<Service>; onDone: (
             <Input inputMode="numeric" value={duration} onChange={(e) => setDuration(e.target.value.replace(/\D/g, ''))} placeholder="60" />
           </Field>
         </div>
+        <Field label="Suppléments (€)" hint="Facultatif : montant proposé en 1× et 2× à la clôture du RDV">
+          <Input inputMode="decimal" value={supplement} onChange={(e) => setSupplement(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="5" />
+        </Field>
         <Field label="Couleur dans le calendrier"><ColorPicker value={color} onChange={setColor} palette={PALETTE} /></Field>
         {initial.id && <p className="text-xs text-muted">Un changement de prix ne modifie pas les rendez-vous déjà enregistrés.</p>}
         <ErrorText error={save.error} />
@@ -305,7 +313,10 @@ function StatusesSection() {
                 <span className="truncate">{s.name}</span>
                 {s.is_default && <span className="rounded-full bg-accent-soft px-2 text-xs text-accent">par défaut</span>}
               </div>
-              <div className="text-sm text-muted">{s.counts_in_revenue ? 'Compte dans le CA' : 'Hors CA'}</div>
+              <div className="text-sm text-muted">
+                {s.counts_in_revenue ? 'Compte dans le CA' : 'Hors CA'}
+                {s.reschedule && ' · reprogramme'}
+              </div>
             </div>
             {!s.is_default && !s.archived && (
               <button className="ml-auto text-muted disabled:opacity-30" title="Définir par défaut" aria-label="Définir par défaut" disabled={!online} onClick={() => setDefault.mutate(s.id)}>
@@ -327,9 +338,10 @@ function StatusForm({ initial, onDone }: { initial: Partial<Status>; onDone: () 
   const [name, setName] = useState(initial.name ?? '')
   const [color, setColor] = useState(initial.color ?? '#8a8a8a')
   const [counts, setCounts] = useState(initial.counts_in_revenue ?? true)
+  const [reschedule, setReschedule] = useState(initial.reschedule ?? false)
 
   async function submit() {
-    await save.mutateAsync({ id: initial.id, name: name.trim(), color, counts_in_revenue: counts, sort_order: initial.sort_order })
+    await save.mutateAsync({ id: initial.id, name: name.trim(), color, counts_in_revenue: counts, reschedule, sort_order: initial.sort_order })
     close()
   }
 
@@ -339,6 +351,10 @@ function StatusForm({ initial, onDone }: { initial: Partial<Status>; onDone: () 
       <div className="space-y-4">
         <Field label="Nom"><Input value={name} onChange={(e) => setName(e.target.value)} autoFocus /></Field>
         <Toggle label="Compte dans le chiffre d'affaires" checked={counts} onChange={setCounts} />
+        <div>
+          <Toggle label="Proposer de reprogrammer" checked={reschedule} onChange={setReschedule} />
+          <p className="text-xs text-muted">Sur l'accueil, ce bouton ouvre le choix d'une nouvelle date et repasse le RDV au statut par défaut.</p>
+        </div>
         <Field label="Couleur"><ColorPicker value={color} onChange={setColor} palette={PALETTE} /></Field>
         <ErrorText error={save.error} />
       </div>

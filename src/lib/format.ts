@@ -1,4 +1,4 @@
-import type { Appointment } from './types'
+import type { Appointment, Service } from './types'
 
 const eur = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 
@@ -11,10 +11,33 @@ export function formatDuration(min: number) {
   return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`
 }
 
-/** Montant d'un RDV : prix personnalisé s'il existe, sinon somme des prestations. */
-export function appointmentTotal(a: Pick<Appointment, 'custom_price' | 'appointment_services'>) {
-  if (a.custom_price != null) return Number(a.custom_price)
-  return a.appointment_services.reduce((sum, s) => sum + Number(s.price), 0)
+/** Montant d'un RDV : prix personnalisé s'il existe, sinon somme des prestations, plus les suppléments. */
+export function appointmentTotal(a: Pick<Appointment, 'custom_price' | 'supplement' | 'appointment_services'>) {
+  const base = a.custom_price != null
+    ? Number(a.custom_price)
+    : a.appointment_services.reduce((sum, s) => sum + Number(s.price), 0)
+  return base + Number(a.supplement ?? 0)
+}
+
+/** Plage horaire affichée dans l'agenda : un RDV en dehors n'y est pas visible */
+export const AGENDA_START_HOUR = 7
+export const AGENDA_END_HOUR = 21
+
+export function isOutsideAgendaHours(start: Date, end: Date) {
+  const dayStart = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+  return (
+    start < new Date(dayStart.getTime() + AGENDA_START_HOUR * 3_600_000) ||
+    end > new Date(dayStart.getTime() + AGENDA_END_HOUR * 3_600_000)
+  )
+}
+
+/** Durées proposées en un clic dans les formulaires de RDV (minutes) */
+export const QUICK_DURATIONS = [30, 60, 75, 90, 120]
+
+/** Pas de supplément d'un RDV : le plus grand parmi ses prestations, 5 € à défaut. */
+export function supplementStep(services: Service[], serviceIds: string[]) {
+  const steps = serviceIds.map((id) => Number(services.find((s) => s.id === id)?.supplement_step ?? 0))
+  return Math.max(0, ...steps) || 5
 }
 
 /** "2026-10-27T09:30" pour les champs <input type="datetime-local"> */

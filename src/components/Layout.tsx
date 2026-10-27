@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BarChart3, CalendarDays, LogOut, PanelLeftClose, PanelLeftOpen, Settings, WifiOff } from 'lucide-react'
+import { BarChart3, CalendarDays, House, LogOut, PanelLeftClose, PanelLeftOpen, Settings, WifiOff } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useOnline } from '../lib/useOnline'
 
 const NAV = [
-  { to: '/', label: 'Agenda', icon: CalendarDays, end: true },
+  { to: '/', label: 'Accueil', icon: House, end: true },
+  { to: '/agenda', label: 'Agenda', icon: CalendarDays, end: false },
   { to: '/stats', label: 'Statistiques', icon: BarChart3, end: false },
   { to: '/parametres', label: 'Paramètres', icon: Settings, end: false },
 ]

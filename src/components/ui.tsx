@@ -4,7 +4,8 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { clsx } from 'clsx'
-import { X } from 'lucide-react'
+import { AlertTriangle, X } from 'lucide-react'
+import { AGENDA_END_HOUR, AGENDA_START_HOUR } from '../lib/format'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'ghost' | 'outline' | 'danger'
@@ -241,4 +242,17 @@ export function ColorPicker({ value, onChange, palette }: { value: string; onCha
 export function ErrorText({ error }: { error: unknown }) {
   if (!error) return null
   return <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error instanceof Error ? error.message : String(error)}</p>
+}
+
+/** Avertissement non bloquant (jour off, horaires…) */
+export function Warning({ children }: { children: ReactNode }) {
+  return (
+    <p className="pop-in flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+      <AlertTriangle size={16} className="shrink-0" /> {children}
+    </p>
+  )
+}
+
+export function OutsideHoursWarning() {
+  return <Warning>{`Hors des horaires de l'agenda (${AGENDA_START_HOUR}h–${AGENDA_END_HOUR}h) : le RDV n'y sera visible qu'en vue Mois`}</Warning>
 }

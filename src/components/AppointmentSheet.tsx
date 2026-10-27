@@ -4,15 +4,14 @@ import { AlertTriangle, Trash2 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useDaysOff, useDeleteAppointment, usePaymentMethods, useSaveAppointment, useServices, useStatuses } from '../lib/queries'
 import type { Appointment } from '../lib/types'
-import { formatDuration, formatEur } from '../lib/format'
+import { formatDuration, formatEur, isOutsideAgendaHours, QUICK_DURATIONS, supplementStep } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
 import ClientAutocomplete from './ClientAutocomplete'
 import ServicePicker from './ServicePicker'
-import { Button, ErrorText, Field, Input, Select, Sheet, Textarea, Toggle, type SheetHandle } from './ui'
+import SupplementPicker from './SupplementPicker'
+import { Button, ErrorText, Field, Input, OutsideHoursWarning, Select, Sheet, Textarea, Toggle, type SheetHandle } from './ui'
 
 export type SheetTarget = { appointment: Appointment } | { start: Date; end: Date | null }
-
-const QUICK_DURATIONS = [30, 60, 90, 120]
 
 export default function AppointmentSheet({ target, onClose }: { target: SheetTarget | null; onClose: () => void }) {
   const sheet = useRef<SheetHandle>(null)
@@ -53,6 +52,7 @@ function AppointmentForm({ target, onDone }: { target: SheetTarget; onDone: () =
   const [paymentMethodId, setPaymentMethodId] = useState<string>(existing?.payment_method_id ?? '')
   const [customPriceOn, setCustomPriceOn] = useState(existing?.custom_price != null)
   const [customPrice, setCustomPrice] = useState(existing?.custom_price != null ? String(existing.custom_price) : '')
+  const [supplement, setSupplement] = useState(Number(existing?.supplement ?? 0))
   const [notes, setNotes] = useState(existing?.notes ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   // Tant que l'heure de fin n'a pas été touchée à la main, elle suit la durée des prestations
@@ -119,6 +119,7 @@ function AppointmentForm({ target, onDone }: { target: SheetTarget; onDone: () =
       status_id: statusId || null,
       payment_method_id: paymentMethodId || null,
       custom_price: customPriceOn ? Number(customPrice.replace(',', '.')) : null,
+      supplement,
       notes: notes.trim() || null,
       service_ids: serviceIds,
     })
@@ -224,6 +225,7 @@ function AppointmentForm({ target, onDone }: { target: SheetTarget; onDone: () =
             <span className="text-sm text-muted">{formatDuration(durationMin)}</span>
           )}
         </div>
+        {durationMin > 0 && isOutsideAgendaHours(start, end) && <OutsideHoursWarning />}
       </div>
 
       <Field label="Prestations">
@@ -248,6 +250,16 @@ function AppointmentForm({ target, onDone }: { target: SheetTarget; onDone: () =
             />
           </div>
         )}
+        <div className="border-t border-line py-2">
+          <span className="mb-2 block text-sm text-muted">Suppléments</span>
+          <SupplementPicker value={supplement} onChange={setSupplement} step={supplementStep(services, serviceIds)} disabled={readOnly} />
+        </div>
+        <div className="flex items-center justify-between border-t border-line py-2">
+          <span className="font-medium">Total</span>
+          <span className="font-semibold">
+            {formatEur((customPriceOn ? Number(customPrice.replace(',', '.')) || 0 : servicesTotal) + supplement)}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

@@ -134,7 +134,7 @@ export function useClientSearch(term: string) {
 // ---------------------------------------------------------------------------
 
 const APPOINTMENT_SELECT =
-  'id, client_id, client_name, start_at, end_at, status_id, payment_method_id, custom_price, notes, client:clients(instagram), appointment_services(service_id, price, position)'
+  'id, client_id, client_name, start_at, end_at, status_id, payment_method_id, custom_price, supplement, notes, client:clients(instagram), appointment_services(service_id, price, position)'
 
 export function useAppointments(from: string | null, to: string | null) {
   return useQuery({
@@ -178,6 +178,40 @@ export function useMoveAppointment() {
       )
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ['appointments'] }),
+  })
+}
+
+/** Clôture rapide depuis l'accueil : suppléments, paiement et statut en une fois */
+export function useCloseAppointment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...fields }: { id: string; status_id: string; payment_method_id: string | null; supplement: number }) => {
+      unwrap(
+        await supabase
+          .from('appointments')
+          .update({ ...fields, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select(),
+      )
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appointments'] }),
+  })
+}
+
+/** Reprogrammation depuis l'accueil (cliente absente) : nouvelle date, statut par défaut */
+export function useRescheduleAppointment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...fields }: { id: string; start_at: string; end_at: string; status_id: string | null }) => {
+      unwrap(
+        await supabase
+          .from('appointments')
+          .update({ ...fields, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select(),
+      )
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appointments'] }),
   })
 }
 
