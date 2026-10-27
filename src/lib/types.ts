@@ -5,6 +5,8 @@ export type Service = {
   duration_min: number | null
   /** Montant d'un pas de supplément pour cette pose (proposé 1× et 2× à la clôture) */
   supplement_step: number | null
+  /** false : prestation hors statistiques (ex. « Perso » à 0 €) */
+  counts_in_stats: boolean
   color: string
   sort_order: number
   archived: boolean

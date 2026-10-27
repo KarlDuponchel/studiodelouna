@@ -1,4 +1,4 @@
-import type { Appointment, Service } from './types'
+import type { Appointment, AppointmentService, Service } from './types'
 
 const eur = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 
@@ -20,6 +20,18 @@ export function appointmentServicesPrice(a: Pick<Appointment, 'custom_price' | '
 /** Montant total d'un RDV : prestations + suppléments. */
 export function appointmentTotal(a: Pick<Appointment, 'custom_price' | 'supplement' | 'appointment_services'>) {
   return appointmentServicesPrice(a) + Number(a.supplement ?? 0)
+}
+
+/** Une prestation compte dans les stats sauf si elle est explicitement exclue (colonne absente : elle compte) */
+export const serviceCountsInStats = (as: AppointmentService, services: Service[]) =>
+  services.find((s) => s.id === as.service_id)?.counts_in_stats !== false
+
+/**
+ * Un RDV compte dans les stats s'il a au moins une prestation qui compte.
+ * Un RDV fait uniquement de prestations exclues (ex. « Perso ») est ignoré partout.
+ */
+export function appointmentCountsInStats(a: Pick<Appointment, 'appointment_services'>, services: Service[]) {
+  return !a.appointment_services.length || a.appointment_services.some((as) => serviceCountsInStats(as, services))
 }
 
 /** Plage horaire affichée dans l'agenda : un RDV en dehors n'y est pas visible */

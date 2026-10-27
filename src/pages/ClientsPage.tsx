@@ -7,7 +7,7 @@ import { clsx } from 'clsx'
 import AppointmentSheet, { type SheetTarget } from '../components/AppointmentSheet'
 import { useClientAppointments, useClients, usePaymentMethods, useServices, useStatuses } from '../lib/queries'
 import type { Appointment, ClientWithLastVisit } from '../lib/types'
-import { appointmentTotal, formatEur } from '../lib/format'
+import { appointmentTotal, formatEur, appointmentCountsInStats } from '../lib/format'
 import { Card, ColorDot, Input, Tile } from '../components/ui'
 
 /** Recherche sans tenir compte des accents ni de la casse */
@@ -102,9 +102,11 @@ function ClientDetail({ client }: { client: ClientWithLastVisit }) {
 
   const now = new Date()
   const countsInRevenue = (a: Appointment) => statuses.find((s) => s.id === a.status_id)?.counts_in_revenue ?? true
-  const past = appointments.filter((a) => new Date(a.start_at) <= now && countsInRevenue(a))
-  const upcoming = appointments.filter((a) => new Date(a.start_at) > now && countsInRevenue(a))
-  const missed = appointments.filter((a) => !countsInRevenue(a)).length
+  // Les chiffres de la fiche ignorent les créneaux hors stats (ex. « Perso ») ; l'historique les garde
+  const counted = appointments.filter((a) => appointmentCountsInStats(a, services))
+  const past = counted.filter((a) => new Date(a.start_at) <= now && countsInRevenue(a))
+  const upcoming = counted.filter((a) => new Date(a.start_at) > now && countsInRevenue(a))
+  const missed = counted.filter((a) => !countsInRevenue(a)).length
   const spent = past.reduce((sum, a) => sum + appointmentTotal(a), 0)
   const lastVisit = past[0] ? new Date(past[0].start_at) : null
   const nextVisit = upcoming.length ? new Date(upcoming[upcoming.length - 1].start_at) : null

@@ -9,7 +9,7 @@ import SupplementPicker from '../components/SupplementPicker'
 import RescheduleSheet from '../components/RescheduleSheet'
 import { useAppointments, useCloseAppointment, usePaymentMethods, useServices, useStatuses } from '../lib/queries'
 import type { Appointment, Service, Status } from '../lib/types'
-import { appointmentTotal, formatDuration, formatEur, supplementStep } from '../lib/format'
+import { appointmentTotal, formatDuration, formatEur, supplementStep, appointmentCountsInStats } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
 import { Card, ColorDot, ErrorText, Tile } from '../components/ui'
 
@@ -37,9 +37,11 @@ function serviceNames(a: Appointment, services: Service[]) {
     .join(' + ')
 }
 
-/** Synthèse d'une journée : les RDV hors CA (annulés, absentes) sont écartés */
-function summarizeDay(appts: Appointment[], statuses: Status[]) {
-  const kept = appts.filter((a) => statuses.find((s) => s.id === a.status_id)?.counts_in_revenue ?? true)
+/** Synthèse d'une journée : les RDV hors CA (annulés, absentes) et hors stats (ex. « Perso ») sont écartés */
+function summarizeDay(appts: Appointment[], statuses: Status[], services: Service[]) {
+  const kept = appts.filter(
+    (a) => (statuses.find((s) => s.id === a.status_id)?.counts_in_revenue ?? true) && appointmentCountsInStats(a, services),
+  )
   const done = kept.filter((a) => !isOpen(a, statuses))
   const sum = (list: Appointment[]) => list.reduce((total, a) => total + appointmentTotal(a), 0)
   const lastEnd = kept.reduce<Date | null>((max, a) => {
@@ -66,25 +68,27 @@ export default function HomePage() {
   const { data: appointments = [], isLoading } = useAppointments(dayStart.toISOString(), tomorrow.toISOString())
   const { data: upcoming = [] } = useAppointments(tomorrow.toISOString(), addDays(tomorrow, NEXT_DAYS_LOOKAHEAD).toISOString())
   const { data: statuses = [] } = useStatuses()
+  const { data: services = [] } = useServices()
   const [target, setTarget] = useState<SheetTarget | null>(null)
 
   // RDV en cours : le premier de la journée déjà commencé et pas encore clôturé, même en retard.
   // Il ne laisse la place à la cliente suivante qu'une fois son statut choisi.
-  const open = appointments.filter((a) => isOpen(a, statuses))
+  // Les créneaux hors stats (ex. « Perso ») n'ont rien à encaisser : jamais mis en avant.
+  const open = appointments.filter((a) => isOpen(a, statuses) && appointmentCountsInStats(a, services))
   const current = open.find((a) => new Date(a.start_at) <= now)
   const next = open.find((a) => a !== current && new Date(a.start_at) > now)
   const featured = current ?? next
 
-  const today = summarizeDay(appointments, statuses)
+  const today = summarizeDay(appointments, statuses, services)
 
   // Prochaine journée travaillée : le premier jour à venir qui a des RDV
   const nextDay = useMemo(() => {
-    const kept = summarizeDay(upcoming, statuses).kept
+    const kept = summarizeDay(upcoming, statuses, services).kept
     if (!kept.length) return null
     const day = startOfDay(new Date(kept[0].start_at))
     const sameDay = upcoming.filter((a) => isSameDay(new Date(a.start_at), day))
-    return { day, appointments: sameDay, summary: summarizeDay(sameDay, statuses) }
-  }, [upcoming, statuses])
+    return { day, appointments: sameDay, summary: summarizeDay(sameDay, statuses, services) }
+  }, [upcoming, statuses, services])
 
   return (
     <div className="mx-auto max-w-2xl space-y-5 p-4 md:p-6">

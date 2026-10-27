@@ -242,6 +242,7 @@ function ServicesSection() {
                 {formatEur(Number(s.price))}
                 {s.duration_min ? ` · ${formatDuration(s.duration_min)}` : ''}
                 {s.supplement_step ? ` · suppl. ${formatEur(Number(s.supplement_step))}` : ''}
+                {s.counts_in_stats === false ? ' · hors stats' : ''}
               </div>
             </div>
           </div>
@@ -260,6 +261,7 @@ function ServiceForm({ initial, onDone }: { initial: Partial<Service>; onDone: (
   const [price, setPrice] = useState(initial.price != null ? String(initial.price) : '')
   const [duration, setDuration] = useState(initial.duration_min ? String(initial.duration_min) : '')
   const [supplement, setSupplement] = useState(initial.supplement_step != null ? String(initial.supplement_step) : '')
+  const [countsInStats, setCountsInStats] = useState(initial.counts_in_stats !== false)
   const [color, setColor] = useState(initial.color ?? PALETTE[0])
   const priceNum = Number(price.replace(',', '.'))
   const supplementNum = Number(supplement.replace(',', '.'))
@@ -273,6 +275,7 @@ function ServiceForm({ initial, onDone }: { initial: Partial<Service>; onDone: (
       price: priceNum,
       duration_min: duration ? Number(duration) : null,
       supplement_step: supplement ? supplementNum : null,
+      counts_in_stats: countsInStats,
       color,
       sort_order: initial.sort_order,
     })
@@ -295,6 +298,13 @@ function ServiceForm({ initial, onDone }: { initial: Partial<Service>; onDone: (
         <Field label="Suppléments (€)" hint="Facultatif : montant proposé en 1× et 2× à la clôture du RDV">
           <Input inputMode="decimal" value={supplement} onChange={(e) => setSupplement(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="5" />
         </Field>
+        <div>
+          <Toggle label="Compte dans les statistiques" checked={countsInStats} onChange={setCountsInStats} />
+          <p className="text-xs text-muted">
+            À décocher pour un créneau qui n'est pas une prestation facturée (ex. « Perso ») : il reste dans l'agenda mais n'apparaît
+            ni dans les statistiques, ni dans le tableau, ni dans les compteurs de l'accueil.
+          </p>
+        </div>
         <Field label="Couleur dans le calendrier" group><ColorPicker value={color} onChange={setColor} palette={PALETTE} /></Field>
         {initial.id && <p className="text-xs text-muted">Un changement de prix ne modifie pas les rendez-vous déjà enregistrés.</p>}
         <ErrorText error={save.error} />

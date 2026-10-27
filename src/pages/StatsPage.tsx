@@ -9,8 +9,8 @@ import { Link } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAppointments, usePaymentMethods, useServices, useStatuses } from '../lib/queries'
-import type { Appointment, Status } from '../lib/types'
-import { appointmentServicesPrice, appointmentTotal, formatEur } from '../lib/format'
+import type { Appointment, Status, Service } from '../lib/types'
+import { appointmentServicesPrice, appointmentTotal, formatEur, appointmentCountsInStats, serviceCountsInStats } from '../lib/format'
 import { Card, ColorDot } from '../components/ui'
 
 type Period = 'day' | 'week' | 'month' | 'year'
@@ -52,11 +52,11 @@ function title(period: Period, [s, e]: [Date, Date]) {
 
 const PREVIOUS_LABEL: Record<Period, string> = { day: 'la veille', week: 'la semaine précédente', month: 'le mois précédent', year: "l'année précédente" }
 
-function summarize(appts: Appointment[], statuses: Status[]) {
+function summarize(appts: Appointment[], statuses: Status[], serviceList: Service[]) {
   const counted = appts.filter((a) => statuses.find((s) => s.id === a.status_id)?.counts_in_revenue ?? true)
   const servicesRevenue = counted.reduce((sum, a) => sum + appointmentServicesPrice(a), 0)
   const supplementsRevenue = counted.reduce((sum, a) => sum + Number(a.supplement ?? 0), 0)
-  const services = counted.reduce((n, a) => n + a.appointment_services.length, 0)
+  const services = counted.reduce((n, a) => n + a.appointment_services.filter((as) => serviceCountsInStats(as, serviceList)).length, 0)
   return { counted, revenue: servicesRevenue + supplementsRevenue, servicesRevenue, supplementsRevenue, services }
 }
 
@@ -67,10 +67,13 @@ export default function StatsPage() {
   const range = bounds(period, ref)
   const prevRange = bounds(period, shift(period, ref, -1))
 
-  const { data: appts = [], isLoading } = useAppointments(range[0].toISOString(), range[1].toISOString())
-  const { data: prevAppts = [] } = useAppointments(prevRange[0].toISOString(), prevRange[1].toISOString())
+  const { data: allAppts = [], isLoading } = useAppointments(range[0].toISOString(), range[1].toISOString())
+  const { data: allPrevAppts = [] } = useAppointments(prevRange[0].toISOString(), prevRange[1].toISOString())
   const { data: statuses = [] } = useStatuses()
   const { data: services = [] } = useServices()
+  // Les RDV faits uniquement de prestations hors stats (ex. « Perso ») sont ignorés partout ici
+  const appts = useMemo(() => allAppts.filter((a) => appointmentCountsInStats(a, services)), [allAppts, services])
+  const prevAppts = useMemo(() => allPrevAppts.filter((a) => appointmentCountsInStats(a, services)), [allPrevAppts, services])
   const { data: payments = [] } = usePaymentMethods()
 
   // Un RDV appartient à la période de son heure de début
@@ -78,8 +81,8 @@ export default function StatsPage() {
     const t = new Date(a.start_at).getTime()
     return t >= s.getTime() && t < e.getTime()
   }
-  const current = summarize(appts.filter((a) => inRange(a, range)), statuses)
-  const previous = summarize(prevAppts.filter((a) => inRange(a, prevRange)), statuses)
+  const current = summarize(appts.filter((a) => inRange(a, range)), statuses, services)
+  const previous = summarize(prevAppts.filter((a) => inRange(a, prevRange)), statuses, services)
 
   const byService = useMemo(() => {
     const map = new Map<string, { count: number; revenue: number }>()
@@ -88,6 +91,7 @@ export default function StatsPage() {
       const base = a.appointment_services.reduce((s, x) => s + Number(x.price), 0)
       const total = appointmentServicesPrice(a)
       for (const as of a.appointment_services) {
+        if (!serviceCountsInStats(as, services)) continue
         const share = base > 0 ? (Number(as.price) / base) * total : total / a.appointment_services.length
         const cur = map.get(as.service_id) ?? { count: 0, revenue: 0 }
         map.set(as.service_id, { count: cur.count + 1, revenue: cur.revenue + share })

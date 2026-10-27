@@ -4,8 +4,8 @@ import { fr } from 'date-fns/locale'
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight } from 'lucide-react'
 import { clsx } from 'clsx'
 import AppointmentSheet, { type SheetTarget } from '../components/AppointmentSheet'
-import { useAppointments, usePaymentMethods, useStatuses } from '../lib/queries'
-import { appointmentServicesPrice, formatEur } from '../lib/format'
+import { useAppointments, usePaymentMethods, useServices, useStatuses } from '../lib/queries'
+import { appointmentServicesPrice, formatEur, appointmentCountsInStats } from '../lib/format'
 import { Card, ColorDot } from '../components/ui'
 
 type SortKey = 'date' | 'services' | 'supplement' | 'total'
@@ -28,6 +28,7 @@ export default function TablePage() {
   const next = addMonths(month, 1)
   const { data: appointments = [], isLoading } = useAppointments(month.toISOString(), next.toISOString())
   const { data: statuses = [] } = useStatuses()
+  const { data: serviceList = [] } = useServices()
   const { data: paymentMethods = [] } = usePaymentMethods()
 
   const rows = useMemo(() => {
@@ -35,6 +36,7 @@ export default function TablePage() {
       // Un RDV appartient au mois de son heure de début
       .filter((a) => new Date(a.start_at) >= month && new Date(a.start_at) < next)
       .filter((a) => statuses.find((s) => s.id === a.status_id)?.counts_in_revenue ?? true)
+      .filter((a) => appointmentCountsInStats(a, serviceList))
       .map((a) => {
         const services = appointmentServicesPrice(a)
         const supplement = Number(a.supplement ?? 0)
@@ -51,7 +53,7 @@ export default function TablePage() {
     const value = (r: (typeof list)[number]) => (sort.key === 'date' ? r.date.getTime() : r[sort.key])
     return list.sort((x, y) => (value(x) - value(y)) * (sort.desc ? -1 : 1) || x.date.getTime() - y.date.getTime())
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appointments, statuses, paymentMethods, sort, month.getTime()])
+  }, [appointments, statuses, serviceList, paymentMethods, sort, month.getTime()])
 
   const totals = rows.reduce(
     (t, r) => ({ services: t.services + r.services, supplement: t.supplement + r.supplement, total: t.total + r.total }),
@@ -138,7 +140,7 @@ export default function TablePage() {
           )}
         </table>
       </Card>
-      <p className="text-xs text-muted">Les RDV annulés et les absences ne sont pas comptés. La pastille indique le statut.</p>
+      <p className="text-xs text-muted">Les RDV annulés, les absences et les prestations hors statistiques (ex. « Perso ») ne sont pas comptés. La pastille indique le statut.</p>
 
       <AppointmentSheet target={target} onClose={() => setTarget(null)} />
     </div>

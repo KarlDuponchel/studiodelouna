@@ -15,7 +15,7 @@ npm run dev
 ## Mise en place de Supabase (une seule fois)
 
 1. **Créer le projet** en région `eu-west-3` (Paris).
-2. **Schéma** : SQL Editor → coller et exécuter, dans l'ordre, les fichiers de [`supabase/migrations/`](supabase/migrations) (`0001_init.sql`, `0002_supplements.sql`, `0003_reschedule_status.sql`). La `0004_require_mfa.sql` se passe en dernier, une fois la double authentification activée sur le compte (voir [Sécurité](#sécurité)).
+2. **Schéma** : SQL Editor → coller et exécuter, dans l'ordre, les fichiers de [`supabase/migrations/`](supabase/migrations) (`0001_init.sql`, `0002_supplements.sql`, `0003_reschedule_status.sql`, `0005_service_counts_in_stats.sql`). La `0004_require_mfa.sql` se passe en dernier, une fois la double authentification activée sur le compte (voir [Sécurité](#sécurité)).
 3. **Bloquer les inscriptions** : Authentication → Sign In / Providers → décocher *Allow new users to sign up*.
 4. **Créer le compte unique** : Authentication → Users → *Add user* → *Create new user* avec l'adresse de la cliente. Le mot de passe est inutile, mais Supabase en exige un : en générer un long et aléatoire. Cocher *Auto Confirm User*.
 5. **Recevoir un code au lieu d'un lien** : Authentication → Emails → modèle *Magic Link*, remplacer le contenu par exemple par :
