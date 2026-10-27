@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   addDays, addMonths, addWeeks, addYears, eachDayOfInterval, eachMonthOfInterval, endOfMonth, endOfWeek, endOfYear,
   format, startOfMonth, startOfWeek, startOfYear, subDays,
@@ -131,12 +131,21 @@ export default function StatsPage() {
     <div className="mx-auto max-w-4xl space-y-5 px-4 py-6">
       <h1 className="text-2xl font-semibold">Statistiques</h1>
 
-      <div className="flex rounded-xl border border-line bg-surface p-1">
+      <div className="relative flex rounded-xl border border-line bg-surface p-1">
+        {/* Pastille qui glisse sous l'onglet actif */}
+        <span
+          aria-hidden
+          className="absolute top-1 bottom-1 left-1 rounded-lg bg-accent transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+          style={{
+            width: `calc((100% - 0.5rem) / ${PERIODS.length})`,
+            transform: `translateX(${PERIODS.findIndex((p) => p.key === period) * 100}%)`,
+          }}
+        />
         {PERIODS.map((p) => (
           <button
             key={p.key}
             onClick={() => setPeriod(p.key)}
-            className={clsx('min-h-10 flex-1 rounded-lg text-sm font-medium', period === p.key ? 'bg-accent text-white' : 'text-muted')}
+            className={clsx('relative min-h-10 flex-1 rounded-lg text-sm font-medium transition-colors duration-300', period === p.key ? 'text-white' : 'text-muted')}
           >
             {p.label}
           </button>
@@ -144,22 +153,22 @@ export default function StatsPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <button aria-label="Période précédente" onClick={() => setRef(shift(period, ref, -1))} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-accent-soft">
+        <button aria-label="Période précédente" onClick={() => setRef(shift(period, ref, -1))} className="flex h-11 w-11 items-center justify-center rounded-full transition hover:bg-accent-soft active:scale-90">
           <ChevronLeft />
         </button>
         <button onClick={() => setRef(new Date())} className="text-lg font-semibold capitalize">
           {title(period, range)}
         </button>
-        <button aria-label="Période suivante" onClick={() => setRef(shift(period, ref, 1))} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-accent-soft">
+        <button aria-label="Période suivante" onClick={() => setRef(shift(period, ref, 1))} className="flex h-11 w-11 items-center justify-center rounded-full transition hover:bg-accent-soft active:scale-90">
           <ChevronRight />
         </button>
       </div>
 
       <div className={clsx('grid grid-cols-2 gap-3 md:grid-cols-3', isLoading && 'opacity-60')}>
-        <Kpi label="Chiffre d'affaires" value={formatEur(current.revenue)} cur={current.revenue} prev={previous.revenue} prevLabel={PREVIOUS_LABEL[period]} />
-        <Kpi label="Rendez-vous" value={String(current.counted.length)} cur={current.counted.length} prev={previous.counted.length} prevLabel={PREVIOUS_LABEL[period]} />
-        <Kpi label="Prestations" value={String(current.services)} cur={current.services} prev={previous.services} prevLabel={PREVIOUS_LABEL[period]} />
-        <Kpi label="Panier moyen" value={current.counted.length ? formatEur(current.revenue / current.counted.length) : '—'} />
+        <Kpi label="Chiffre d'affaires" value={current.revenue} format={formatEur} cur={current.revenue} prev={previous.revenue} prevLabel={PREVIOUS_LABEL[period]} />
+        <Kpi label="Rendez-vous" value={current.counted.length} format={formatInt} cur={current.counted.length} prev={previous.counted.length} prevLabel={PREVIOUS_LABEL[period]} />
+        <Kpi label="Prestations" value={current.services} format={formatInt} cur={current.services} prev={previous.services} prevLabel={PREVIOUS_LABEL[period]} />
+        <Kpi label="Panier moyen" value={current.counted.length ? current.revenue / current.counted.length : null} format={formatEur} />
       </div>
 
       {chart.length > 0 && (
@@ -193,7 +202,7 @@ export default function StatsPage() {
                     <span className="w-20 text-right font-medium">{formatEur(revenue)}</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-bg">
-                    <div className="h-full rounded-full" style={{ width: `${current.revenue ? (revenue / current.revenue) * 100 : 0}%`, background: service?.color ?? '#8a8a8a' }} />
+                    <div className="grow-x h-full rounded-full transition-[width] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]" style={{ width: `${current.revenue ? (revenue / current.revenue) * 100 : 0}%`, background: service?.color ?? '#8a8a8a' }} />
                   </div>
                 </li>
               ))}
@@ -235,7 +244,45 @@ export default function StatsPage() {
   )
 }
 
-function Kpi({ label, value, cur, prev, prevLabel }: { label: string; value: string; cur?: number; prev?: number; prevLabel?: string }) {
+const formatInt = (n: number) => String(Math.round(n))
+
+/** Fait défiler un nombre de sa valeur précédente vers la nouvelle. */
+function AnimatedNumber({ value, format }: { value: number; format: (n: number) => string }) {
+  const [shown, setShown] = useState(0)
+  const from = useRef(0)
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      from.current = value
+      setShown(value)
+      return
+    }
+    const start = performance.now()
+    const origin = from.current
+    let frame = 0
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / 600)
+      const eased = 1 - Math.pow(1 - t, 3)
+      const v = origin + (value - origin) * eased
+      from.current = v
+      setShown(v)
+      if (t < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [value])
+
+  return <>{format(shown)}</>
+}
+
+function Kpi({ label, value, format, cur, prev, prevLabel }: {
+  label: string
+  value: number | null
+  format: (n: number) => string
+  cur?: number
+  prev?: number
+  prevLabel?: string
+}) {
   let delta: string | null = null
   let up = true
   if (cur !== undefined && prev !== undefined) {
@@ -248,9 +295,9 @@ function Kpi({ label, value, cur, prev, prevLabel }: { label: string; value: str
   return (
     <Card className="p-4">
       <div className="text-sm text-muted">{label}</div>
-      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums">{value === null ? '—' : <AnimatedNumber value={value} format={format} />}</div>
       {delta && (
-        <div className={clsx('mt-1 text-xs', up ? 'text-emerald-700' : 'text-danger')}>
+        <div className={clsx('pop-in mt-1 text-xs', up ? 'text-emerald-700' : 'text-danger')}>
           {delta} <span className="text-muted">vs {prevLabel}</span>
         </div>
       )}

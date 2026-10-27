@@ -34,7 +34,7 @@ export default function ClientAutocomplete({ name, clientId, disabled, onChange 
         onChange={(e) => onChange(e.target.value, null)}
       />
       {showList && (matches.length > 0 || !exact) && (
-        <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-line bg-surface py-1 shadow-lg">
+        <ul className="pop-in absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-line bg-surface py-1 shadow-lg">
           {matches.map((c) => (
             <li key={c.id}>
               <button
@@ -44,7 +44,7 @@ export default function ClientAutocomplete({ name, clientId, disabled, onChange 
                   onChange(c.name, c)
                   setFocused(false)
                 }}
-                className="flex min-h-11 w-full items-center justify-between gap-2 px-3 text-left hover:bg-accent-soft"
+                className="flex min-h-11 w-full items-center justify-between gap-2 px-3 text-left transition-colors hover:bg-accent-soft active:bg-accent-soft"
               >
                 <span>{c.name}</span>
                 {c.instagram && (

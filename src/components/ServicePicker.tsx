@@ -31,7 +31,7 @@ export default function ServicePicker({ services, value, disabled, onChange }: P
             disabled={disabled}
             onClick={() => onChange(selected ? value.filter((id) => id !== s.id) : [...value, s.id])}
             className={clsx(
-              'flex min-h-11 items-center gap-2 rounded-xl border px-3 py-1.5 text-left transition disabled:opacity-60',
+              'flex min-h-11 items-center gap-2 rounded-xl border px-3 py-1.5 text-left transition duration-200 active:scale-[0.96] disabled:opacity-60 disabled:active:scale-100',
               selected ? 'border-transparent text-white' : 'border-line bg-surface',
             )}
             style={selected ? { background: s.color } : undefined}

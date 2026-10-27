@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronUp, Download, LogOut, Pencil, Plus, Star } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -19,7 +19,9 @@ import type { DayOff, PaymentMethod, Service, Status } from '../lib/types'
 import { PALETTE, formatDuration, formatEur, toDateInput } from '../lib/format'
 import { useAuth } from '../lib/auth'
 import { useOnline } from '../lib/useOnline'
-import { Button, Card, ColorDot, ColorPicker, ErrorText, Field, Input, Sheet, Toggle } from '../components/ui'
+import { useFlip } from '../lib/useFlip'
+import { useQueryClient } from '@tanstack/react-query'
+import { Button, Card, ColorDot, ColorPicker, ErrorText, Field, Input, Sheet, Toggle, type SheetHandle } from '../components/ui'
 
 export default function SettingsPage() {
   const { signOut, session } = useAuth()
@@ -55,10 +57,10 @@ export default function SettingsPage() {
       <Section title="Compte">
         <Card className="divide-y divide-line">
           <div className="px-4 py-3 text-sm text-muted">Connectée : {session?.user.email}</div>
-          <button onClick={download} disabled={!online || exporting} className="flex min-h-12 w-full items-center gap-3 px-4 text-left disabled:opacity-50">
+          <button onClick={download} disabled={!online || exporting} className="flex min-h-12 w-full items-center gap-3 px-4 text-left transition-colors active:bg-bg disabled:opacity-50">
             <Download size={18} /> {exporting ? 'Export en cours…' : 'Télécharger une sauvegarde'}
           </button>
-          <button onClick={signOut} className="flex min-h-12 w-full items-center gap-3 px-4 text-left text-danger">
+          <button onClick={signOut} className="flex min-h-12 w-full items-center gap-3 px-4 text-left text-danger transition-colors active:bg-bg">
             <LogOut size={18} /> Déconnexion
           </button>
         </Card>
@@ -106,12 +108,21 @@ function SortableList<T extends { id: string; sort_order: number; archived: bool
   const active = items.filter((i) => !i.archived)
   const archived = items.filter((i) => i.archived)
 
+  const qc = useQueryClient()
+  const listRef = useRef<HTMLDivElement>(null)
+  useFlip(listRef, active.map((i) => i.id).join())
+
   async function swap(i: number, j: number) {
     const a = active[i], b = active[j]
     // On renumérote toute la liste pour éviter les égalités de sort_order
+    const orders = new Map(active.map((item, idx) => [item.id, item === a ? j : item === b ? i : idx]))
+    // Mise à jour immédiate de l'affichage, sans attendre le serveur
+    qc.setQueryData<T[]>([table], (old) =>
+      old?.map((it) => (orders.has(it.id) ? { ...it, sort_order: orders.get(it.id)! } : it)).sort((x, y) => x.sort_order - y.sort_order),
+    )
     await Promise.all(
-      active.map((item, idx) => {
-        const order = item === a ? j : item === b ? i : idx
+      active.map((item) => {
+        const order = orders.get(item.id)!
         return item.sort_order === order ? null : save.mutateAsync({ id: item.id, sort_order: order } as never)
       }),
     )
@@ -119,10 +130,11 @@ function SortableList<T extends { id: string; sort_order: number; archived: bool
 
   return (
     <>
-      <Card className="divide-y divide-line">
+      <Card className="overflow-hidden">
+        <div ref={listRef} className="divide-y divide-line">
         {active.length === 0 && <p className="px-4 py-3 text-sm text-muted">Aucun élément.</p>}
         {active.map((item, i) => (
-          <div key={item.id} className="flex min-h-14 items-center gap-2 pr-2 pl-4">
+          <div key={item.id} data-flip-id={item.id} className="relative flex min-h-14 items-center gap-2 bg-surface pr-2 pl-4">
             <div className="min-w-0 flex-1">{render(item)}</div>
             <div className="flex">
               <IconBtn label="Monter" disabled={!online || i === 0} onClick={() => swap(i, i - 1)}><ChevronUp size={18} /></IconBtn>
@@ -131,6 +143,7 @@ function SortableList<T extends { id: string; sort_order: number; archived: bool
             </div>
           </div>
         ))}
+        </div>
       </Card>
       {archived.length > 0 && (
         <div className="mt-2">
@@ -138,7 +151,7 @@ function SortableList<T extends { id: string; sort_order: number; archived: bool
             {showArchived ? 'Masquer' : 'Afficher'} les archivés ({archived.length})
           </button>
           {showArchived && (
-            <Card className="mt-2 divide-y divide-line opacity-70">
+            <Card className="pop-in mt-2 divide-y divide-line opacity-70">
               {archived.map((item) => (
                 <div key={item.id} className="flex min-h-12 items-center gap-2 pr-2 pl-4">
                   <div className="min-w-0 flex-1">{render(item)}</div>
@@ -157,7 +170,7 @@ function SortableList<T extends { id: string; sort_order: number; archived: bool
 
 function IconBtn({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: ReactNode }) {
   return (
-    <button aria-label={label} title={label} onClick={onClick} disabled={disabled} className="flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-accent-soft disabled:opacity-30">
+    <button aria-label={label} title={label} onClick={onClick} disabled={disabled} className="flex h-10 w-10 items-center justify-center rounded-full text-muted transition hover:bg-accent-soft active:scale-90 active:bg-accent-soft disabled:opacity-30 disabled:active:scale-100">
       {children}
     </button>
   )
@@ -226,6 +239,8 @@ function ServicesSection() {
 }
 
 function ServiceForm({ initial, onDone }: { initial: Partial<Service>; onDone: () => void }) {
+  const sheet = useRef<SheetHandle>(null)
+  const close = () => sheet.current?.close()
   const save = useSaveSetting('services')
   const [name, setName] = useState(initial.name ?? '')
   const [price, setPrice] = useState(initial.price != null ? String(initial.price) : '')
@@ -243,12 +258,12 @@ function ServiceForm({ initial, onDone }: { initial: Partial<Service>; onDone: (
       color,
       sort_order: initial.sort_order,
     })
-    onDone()
+    close()
   }
 
   return (
-    <Sheet open onClose={onDone} title={initial.id ? 'Modifier la prestation' : 'Nouvelle prestation'}
-      footer={<EditFooter table="services" id={initial.id} onDone={onDone} onSave={submit} saving={save.isPending} canSave={canSave} />}>
+    <Sheet ref={sheet} open onClose={onDone} title={initial.id ? 'Modifier la prestation' : 'Nouvelle prestation'}
+      footer={<EditFooter table="services" id={initial.id} onDone={close} onSave={submit} saving={save.isPending} canSave={canSave} />}>
       <div className="space-y-4">
         <Field label="Nom"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Semi-permanent" autoFocus /></Field>
         <div className="grid grid-cols-2 gap-3">
@@ -306,6 +321,8 @@ function StatusesSection() {
 }
 
 function StatusForm({ initial, onDone }: { initial: Partial<Status>; onDone: () => void }) {
+  const sheet = useRef<SheetHandle>(null)
+  const close = () => sheet.current?.close()
   const save = useSaveSetting('statuses')
   const [name, setName] = useState(initial.name ?? '')
   const [color, setColor] = useState(initial.color ?? '#8a8a8a')
@@ -313,12 +330,12 @@ function StatusForm({ initial, onDone }: { initial: Partial<Status>; onDone: () 
 
   async function submit() {
     await save.mutateAsync({ id: initial.id, name: name.trim(), color, counts_in_revenue: counts, sort_order: initial.sort_order })
-    onDone()
+    close()
   }
 
   return (
-    <Sheet open onClose={onDone} title={initial.id ? 'Modifier le statut' : 'Nouveau statut'}
-      footer={<EditFooter table="statuses" id={initial.id} onDone={onDone} onSave={submit} saving={save.isPending} canSave={name.trim() !== ''} />}>
+    <Sheet ref={sheet} open onClose={onDone} title={initial.id ? 'Modifier le statut' : 'Nouveau statut'}
+      footer={<EditFooter table="statuses" id={initial.id} onDone={close} onSave={submit} saving={save.isPending} canSave={name.trim() !== ''} />}>
       <div className="space-y-4">
         <Field label="Nom"><Input value={name} onChange={(e) => setName(e.target.value)} autoFocus /></Field>
         <Toggle label="Compte dans le chiffre d'affaires" checked={counts} onChange={setCounts} />
@@ -345,15 +362,17 @@ function PaymentMethodsSection() {
 }
 
 function PaymentForm({ initial, onDone }: { initial: Partial<PaymentMethod>; onDone: () => void }) {
+  const sheet = useRef<SheetHandle>(null)
+  const close = () => sheet.current?.close()
   const save = useSaveSetting('payment_methods')
   const [name, setName] = useState(initial.name ?? '')
   async function submit() {
     await save.mutateAsync({ id: initial.id, name: name.trim(), sort_order: initial.sort_order })
-    onDone()
+    close()
   }
   return (
-    <Sheet open onClose={onDone} title={initial.id ? 'Modifier le mode de paiement' : 'Nouveau mode de paiement'}
-      footer={<EditFooter table="payment_methods" id={initial.id} onDone={onDone} onSave={submit} saving={save.isPending} canSave={name.trim() !== ''} />}>
+    <Sheet ref={sheet} open onClose={onDone} title={initial.id ? 'Modifier le mode de paiement' : 'Nouveau mode de paiement'}
+      footer={<EditFooter table="payment_methods" id={initial.id} onDone={close} onSave={submit} saving={save.isPending} canSave={name.trim() !== ''} />}>
       <div className="space-y-4">
         <Field label="Nom"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Lydia, chèque…" autoFocus /></Field>
         <ErrorText error={save.error} />
@@ -401,7 +420,7 @@ function DaysOffSection() {
           <button className="text-sm text-muted underline" onClick={() => setShowPast(!showPast)}>
             {showPast ? 'Masquer' : 'Afficher'} les passés ({past.length})
           </button>
-          {showPast && <Card className="mt-2 divide-y divide-line opacity-70">{past.map(row)}</Card>}
+          {showPast && <Card className="pop-in mt-2 divide-y divide-line opacity-70">{past.map(row)}</Card>}
         </div>
       )}
       {editing && <DayOffForm initial={editing} onDone={() => setEditing(null)} />}
@@ -410,6 +429,8 @@ function DaysOffSection() {
 }
 
 function DayOffForm({ initial, onDone }: { initial: Partial<DayOff>; onDone: () => void }) {
+  const sheet = useRef<SheetHandle>(null)
+  const close = () => sheet.current?.close()
   const save = useSaveDayOff()
   const del = useDeleteDayOff()
   const [labelText, setLabelText] = useState(initial.label ?? 'Vacances')
@@ -419,15 +440,15 @@ function DayOffForm({ initial, onDone }: { initial: Partial<DayOff>; onDone: () 
 
   async function submit() {
     await save.mutateAsync({ id: initial.id, label: labelText.trim(), start_date: start, end_date: end })
-    onDone()
+    close()
   }
 
   return (
-    <Sheet open onClose={onDone} title={initial.id ? 'Modifier' : 'Nouveau jour off'}
+    <Sheet ref={sheet} open onClose={onDone} title={initial.id ? 'Modifier' : 'Nouveau jour off'}
       footer={
         <div className="flex justify-between gap-2">
           {initial.id ? (
-            <Button variant="danger" disabled={del.isPending} onClick={async () => { await del.mutateAsync(initial.id!); onDone() }}>Supprimer</Button>
+            <Button variant="danger" disabled={del.isPending} onClick={async () => { await del.mutateAsync(initial.id!); close() }}>Supprimer</Button>
           ) : <span />}
           <Button onClick={submit} disabled={!canSave || save.isPending}>Enregistrer</Button>
         </div>

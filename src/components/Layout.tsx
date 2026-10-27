@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BarChart3, CalendarDays, LogOut, Settings, WifiOff } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuth } from '../lib/auth'
@@ -13,6 +13,7 @@ const NAV = [
 export default function Layout() {
   const { signOut } = useAuth()
   const online = useOnline()
+  const { pathname } = useLocation()
 
   return (
     <div className="flex h-full">
@@ -30,7 +31,7 @@ export default function Layout() {
               end={end}
               className={({ isActive }) =>
                 clsx(
-                  'flex min-h-11 items-center gap-3 rounded-xl px-3 font-medium',
+                  'flex min-h-11 items-center gap-3 rounded-xl px-3 font-medium transition-colors',
                   isActive ? 'bg-accent-soft text-accent' : 'text-ink hover:bg-bg',
                 )
               }
@@ -53,7 +54,10 @@ export default function Layout() {
           </div>
         )}
         <main className={clsx('min-h-0 flex-1 overflow-y-auto', online && 'pt-safe')}>
-          <Outlet />
+          {/* key : rejoue l'animation d'entrée à chaque changement d'onglet */}
+          <div key={pathname} className="page-enter h-full">
+            <Outlet />
+          </div>
         </main>
 
         {/* Barre d'onglets : iPhone */}
@@ -64,10 +68,10 @@ export default function Layout() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                clsx('flex flex-1 flex-col items-center gap-0.5 py-2 text-xs', isActive ? 'text-accent' : 'text-muted')
+                clsx('group flex flex-1 flex-col items-center gap-0.5 py-2 text-xs transition-colors', isActive ? 'text-accent' : 'text-muted')
               }
             >
-              <Icon size={22} />
+              <Icon size={22} className="transition-transform duration-150 group-active:scale-85" />
               {label}
             </NavLink>
           ))}
