@@ -73,13 +73,15 @@ export default function CalendarPage() {
           key={isWide ? 'wide' : 'narrow'}
           plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
           locale={frLocale}
-          initialView="timeGridWeek"
+          // Vue 3 jours façon Outlook mobile : 7 colonnes sont trop serrées sur iPhone
+          views={{ timeGrid3Days: { type: 'timeGrid', duration: { days: 3 }, buttonText: '3 jours' } }}
+          initialView={isWide ? 'timeGridWeek' : 'timeGrid3Days'}
           headerToolbar={
             isWide
-              ? { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth' }
+              ? { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGrid3Days,timeGridWeek,dayGridMonth' }
               : { left: 'prev,next', center: 'title', right: 'today' }
           }
-          footerToolbar={isWide ? undefined : { center: 'timeGridDay,timeGridWeek,dayGridMonth' }}
+          footerToolbar={isWide ? undefined : { center: 'timeGridDay,timeGrid3Days,timeGridWeek,dayGridMonth' }}
           buttonText={{ today: "Aujourd'hui", day: 'Jour', week: 'Semaine', month: 'Mois' }}
           height="100%"
           allDaySlot={false}
@@ -151,7 +153,7 @@ export default function CalendarPage() {
       {online && (
         <button
           onClick={() => openNew(startOfHour(addHours(new Date(), 1)))}
-          className="fixed right-5 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg transition-transform active:scale-90 md:right-8 md:bottom-8"
+          className="fixed right-5 bottom-[calc(8.5rem+env(safe-area-inset-bottom))] z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg transition-transform active:scale-90 md:right-8 md:bottom-8"
           aria-label="Nouveau rendez-vous"
         >
           <Plus size={28} />
