@@ -27,6 +27,8 @@ export default function CalendarPage() {
   const { data: daysOff = [] } = useDaysOff()
   const move = useMoveAppointment()
 
+  // Calculée une seule fois : changer scrollTime ensuite relancerait le défilement
+  const [initialScrollTime] = useState(computeScrollTime)
   const calendarRef = useRef<FullCalendar>(null)
   const swipeRef = useRef<HTMLDivElement>(null)
   const draggingEvent = useRef(false)
@@ -99,7 +101,9 @@ export default function CalendarPage() {
           allDaySlot={false}
           slotMinTime="07:00:00"
           slotMaxTime="21:00:00"
-          scrollTime="08:30:00"
+          scrollTime={initialScrollTime}
+          // Garde la position de défilement en changeant de période ou de vue
+          scrollTimeReset={false}
           slotDuration="00:30:00"
           snapDuration="00:15:00"
           nowIndicator
@@ -181,3 +185,15 @@ export default function CalendarPage() {
   )
 }
 
+
+/**
+ * Heure affichée en haut au chargement : 1h avant maintenant, pour voir le trait
+ * « maintenant » et ce qui précède. Tôt le matin ou en soirée : 8h30.
+ */
+function computeScrollTime() {
+  const now = new Date()
+  const minutes = now.getHours() * 60 + now.getMinutes() - 60
+  if (minutes < 8 * 60 + 30 || now.getHours() >= 20) return '08:30:00'
+  const rounded = Math.floor(minutes / 30) * 30
+  return `${String(Math.floor(rounded / 60)).padStart(2, '0')}:${String(rounded % 60).padStart(2, '0')}:00`
+}
