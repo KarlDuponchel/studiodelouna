@@ -2,7 +2,8 @@ name: Supabase keep-alive
 
 # Empêche la mise en pause du projet Supabase gratuit (7 jours sans activité).
 # Secrets requis dans GitHub > Settings > Secrets and variables > Actions :
-#   SUPABASE_URL, SUPABASE_ANON_KEY
+#   SUPABASE_URL      ex. https://abcdefgh.supabase.co (sans /rest/v1)
+#   SUPABASE_ANON_KEY clé « anon » / publishable du projet
 
 on:
   schedule:
@@ -11,13 +12,36 @@ on:
 
 jobs:
   ping:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          curl --fail --silent --show-error -X POST \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/rpc/ping" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+          # Espaces, retours à la ligne ou guillemets collés avec la valeur du secret
+          url="$(printf '%s' "$SUPABASE_URL" | tr -d '[:space:]"')"
+          url="${url%/}"
+          url="${url%/rest/v1}"
+          key="$(printf '%s' "$SUPABASE_ANON_KEY" | tr -d '[:space:]"')"
+
+          if [ -z "$url" ]; then
+            echo "::error::Secret SUPABASE_URL absent ou vide"
+            exit 1
+          fi
+          if [ -z "$key" ]; then
+            echo "::error::Secret SUPABASE_ANON_KEY absent ou vide"
+            exit 1
+          fi
+          case "$url" in
+            https://*) ;;
+            *) echo "::error::SUPABASE_URL doit commencer par https:// (ex. https://abcdefgh.supabase.co)"; exit 1 ;;
+          esac
+
+          curl --fail-with-body --silent --show-error -X POST \
+            "$url/rest/v1/rpc/ping" \
+            -H "apikey: $key" \
+            -H "Authorization: Bearer $key" \
             -H "Content-Type: application/json" \
             -d '{}'
+          echo
