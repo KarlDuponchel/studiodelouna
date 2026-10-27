@@ -8,16 +8,17 @@ import { formatDuration, formatEur } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
 import ClientAutocomplete from './ClientAutocomplete'
 import ServicePicker from './ServicePicker'
-import { Button, ErrorText, Field, Input, Select, Sheet, Textarea, Toggle } from './ui'
+import { Button, ErrorText, Field, Input, Select, Sheet, Textarea, Toggle, type SheetHandle } from './ui'
 
 export type SheetTarget = { appointment: Appointment } | { start: Date; end: Date | null }
 
 const QUICK_DURATIONS = [30, 60, 90, 120]
 
 export default function AppointmentSheet({ target, onClose }: { target: SheetTarget | null; onClose: () => void }) {
+  const sheet = useRef<SheetHandle>(null)
   return (
-    <Sheet open={target !== null} onClose={onClose} title={target && 'appointment' in target ? 'Rendez-vous' : 'Nouveau rendez-vous'}>
-      {target && <AppointmentForm key={'appointment' in target ? target.appointment.id : target.start.toISOString()} target={target} onDone={onClose} />}
+    <Sheet ref={sheet} open={target !== null} onClose={onClose} title={target && 'appointment' in target ? 'Rendez-vous' : 'Nouveau rendez-vous'}>
+      {target && <AppointmentForm key={'appointment' in target ? target.appointment.id : target.start.toISOString()} target={target} onDone={() => sheet.current?.close()} />}
     </Sheet>
   )
 }
@@ -169,7 +170,7 @@ function AppointmentForm({ target, onDone }: { target: SheetTarget; onDone: () =
           <Input type="date" required value={date} disabled={readOnly} onChange={(e) => setDate(e.target.value)} />
         </Field>
         {dayOff && (
-          <p className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className="pop-in flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
             <AlertTriangle size={16} /> Jour off : {dayOff.label}
           </p>
         )}
@@ -202,7 +203,7 @@ function AppointmentForm({ target, onDone }: { target: SheetTarget; onDone: () =
                 setDuration(m)
               }}
               className={clsx(
-                'min-h-9 rounded-full border px-3 text-sm',
+                'min-h-9 rounded-full border px-3 text-sm transition duration-200 active:scale-95',
                 durationMin === m ? 'border-accent bg-accent-soft text-accent' : 'border-line bg-surface',
               )}
             >
@@ -214,7 +215,7 @@ function AppointmentForm({ target, onDone }: { target: SheetTarget; onDone: () =
               type="button"
               disabled={readOnly}
               onClick={() => setDuration(servicesDuration)}
-              className="min-h-9 rounded-full border border-dashed border-accent px-3 text-sm text-accent"
+              className="pop-in min-h-9 rounded-full border border-dashed border-accent px-3 text-sm text-accent transition active:scale-95"
             >
               Durée des prestations : {formatDuration(servicesDuration)}
             </button>
@@ -236,7 +237,7 @@ function AppointmentForm({ target, onDone }: { target: SheetTarget; onDone: () =
         </div>
         <Toggle label="Prix personnalisé" checked={customPriceOn} onChange={(v) => !readOnly && setCustomPriceOn(v)} />
         {customPriceOn && (
-          <div className="pb-2">
+          <div className="pop-in pb-2">
             <Input
               inputMode="decimal"
               placeholder="Montant en €"
@@ -278,7 +279,7 @@ function AppointmentForm({ target, onDone }: { target: SheetTarget; onDone: () =
       <ErrorText error={save.error ?? remove.error} />
 
       {!readOnly && (
-        <div className="pb-safe flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           {existing ? (
             confirmDelete ? (
               <div className="flex gap-2">

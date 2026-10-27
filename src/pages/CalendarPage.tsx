@@ -73,7 +73,7 @@ export default function CalendarPage() {
           key={isWide ? 'wide' : 'narrow'}
           plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
           locale={frLocale}
-          initialView={isWide ? 'timeGridWeek' : 'timeGridDay'}
+          initialView="timeGridWeek"
           headerToolbar={
             isWide
               ? { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth' }
@@ -151,7 +151,7 @@ export default function CalendarPage() {
       {online && (
         <button
           onClick={() => openNew(startOfHour(addHours(new Date(), 1)))}
-          className="fixed right-5 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg active:scale-95 md:right-8 md:bottom-8"
+          className="fixed right-5 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg transition-transform active:scale-90 md:right-8 md:bottom-8"
           aria-label="Nouveau rendez-vous"
         >
           <Plus size={28} />
