@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import dayGridPlugin from '@fullcalendar/daygrid'
@@ -13,6 +13,7 @@ import type { Appointment } from '../lib/types'
 import { appointmentTotal, formatEur, toDateInput } from '../lib/format'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import { useOnline } from '../lib/useOnline'
+import { useSwipeNavigation } from '../lib/useSwipeNavigation'
 
 export default function CalendarPage() {
   const isWide = useMediaQuery('(min-width: 768px)')
@@ -25,6 +26,16 @@ export default function CalendarPage() {
   const { data: statuses = [] } = useStatuses()
   const { data: daysOff = [] } = useDaysOff()
   const move = useMoveAppointment()
+
+  const calendarRef = useRef<FullCalendar>(null)
+  const swipeRef = useRef<HTMLDivElement>(null)
+  const draggingEvent = useRef(false)
+  useSwipeNavigation(swipeRef, {
+    onPrev: () => calendarRef.current?.getApi().prev(),
+    onNext: () => calendarRef.current?.getApi().next(),
+    isBlocked: () => draggingEvent.current,
+    targetSelector: '.fc-view-harness',
+  })
 
   const events = useMemo<EventInput[]>(() => {
     const isMonth = range?.view === 'dayGridMonth'
@@ -68,8 +79,9 @@ export default function CalendarPage() {
 
   return (
     <div className="flex h-full flex-col p-2 md:p-4">
-      <div className="min-h-0 flex-1 rounded-2xl border border-line bg-surface p-2 md:p-3">
+      <div ref={swipeRef} className="min-h-0 flex-1 touch-pan-y overflow-hidden rounded-2xl border border-line bg-surface p-2 md:p-3">
         <FullCalendar
+          ref={calendarRef}
           key={isWide ? 'wide' : 'narrow'}
           plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
           locale={frLocale}
@@ -119,6 +131,10 @@ export default function CalendarPage() {
             const appointment = arg.event.extendedProps.appointment as Appointment | undefined
             if (appointment) setTarget({ appointment })
           }}
+          eventDragStart={() => { draggingEvent.current = true }}
+          eventDragStop={() => { draggingEvent.current = false }}
+          eventResizeStart={() => { draggingEvent.current = true }}
+          eventResizeStop={() => { draggingEvent.current = false }}
           eventChange={(arg) => {
             if (!arg.event.start || !arg.event.end) return arg.revert()
             move.mutate(
