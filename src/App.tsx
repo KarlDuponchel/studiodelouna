@@ -9,6 +9,7 @@ import CalendarPage from './pages/CalendarPage'
 const StatsPage = lazy(() => import('./pages/StatsPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const ClientsPage = lazy(() => import('./pages/ClientsPage'))
+const TablePage = lazy(() => import('./pages/TablePage'))
 
 export default function App() {
   const { session, loading } = useAuth()
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="agenda" element={<CalendarPage />} />
           <Route path="clientes/:id?" element={<ClientsPage />} />
           <Route path="stats" element={<StatsPage />} />
+          <Route path="stats/tableau" element={<TablePage />} />
           <Route path="parametres" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -4,12 +4,13 @@ import {
   format, startOfMonth, startOfWeek, startOfYear, subDays,
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Table2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAppointments, usePaymentMethods, useServices, useStatuses } from '../lib/queries'
 import type { Appointment, Status } from '../lib/types'
-import { appointmentTotal, formatEur } from '../lib/format'
+import { appointmentServicesPrice, appointmentTotal, formatEur } from '../lib/format'
 import { Card, ColorDot } from '../components/ui'
 
 type Period = 'day' | 'week' | 'month' | 'year'
@@ -53,9 +54,10 @@ const PREVIOUS_LABEL: Record<Period, string> = { day: 'la veille', week: 'la sem
 
 function summarize(appts: Appointment[], statuses: Status[]) {
   const counted = appts.filter((a) => statuses.find((s) => s.id === a.status_id)?.counts_in_revenue ?? true)
-  const revenue = counted.reduce((sum, a) => sum + appointmentTotal(a), 0)
+  const servicesRevenue = counted.reduce((sum, a) => sum + appointmentServicesPrice(a), 0)
+  const supplementsRevenue = counted.reduce((sum, a) => sum + Number(a.supplement ?? 0), 0)
   const services = counted.reduce((n, a) => n + a.appointment_services.length, 0)
-  return { counted, revenue, services }
+  return { counted, revenue: servicesRevenue + supplementsRevenue, servicesRevenue, supplementsRevenue, services }
 }
 
 export default function StatsPage() {
@@ -82,9 +84,9 @@ export default function StatsPage() {
   const byService = useMemo(() => {
     const map = new Map<string, { count: number; revenue: number }>()
     for (const a of current.counted) {
-      // Avec un prix personnalisé, on le répartit au prorata des prix des prestations
+      // Avec un prix personnalisé, on le répartit au prorata des prix des prestations (hors suppléments)
       const base = a.appointment_services.reduce((s, x) => s + Number(x.price), 0)
-      const total = appointmentTotal(a)
+      const total = appointmentServicesPrice(a)
       for (const as of a.appointment_services) {
         const share = base > 0 ? (Number(as.price) / base) * total : total / a.appointment_services.length
         const cur = map.get(as.service_id) ?? { count: 0, revenue: 0 }
@@ -129,7 +131,12 @@ export default function StatsPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-4 py-6">
-      <h1 className="text-2xl font-semibold">Statistiques</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Statistiques</h1>
+        <Link to="/stats/tableau" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-surface px-3 text-sm font-medium transition hover:bg-accent-soft active:scale-[0.98]">
+          <Table2 size={18} /> Tableau mensuel
+        </Link>
+      </div>
 
       <div className="relative flex rounded-xl border border-line bg-surface p-1">
         {/* Pastille qui glisse sous l'onglet actif */}
@@ -165,7 +172,9 @@ export default function StatsPage() {
       </div>
 
       <div className={clsx('grid grid-cols-2 gap-3 md:grid-cols-3', isLoading && 'opacity-60')}>
-        <Kpi label="Chiffre d'affaires" value={current.revenue} format={formatEur} cur={current.revenue} prev={previous.revenue} prevLabel={PREVIOUS_LABEL[period]} />
+        <Kpi label="CA total" value={current.revenue} format={formatEur} cur={current.revenue} prev={previous.revenue} prevLabel={PREVIOUS_LABEL[period]} />
+        <Kpi label="CA prestations" value={current.servicesRevenue} format={formatEur} cur={current.servicesRevenue} prev={previous.servicesRevenue} prevLabel={PREVIOUS_LABEL[period]} />
+        <Kpi label="CA suppléments" value={current.supplementsRevenue} format={formatEur} cur={current.supplementsRevenue} prev={previous.supplementsRevenue} prevLabel={PREVIOUS_LABEL[period]} />
         <Kpi label="Rendez-vous" value={current.counted.length} format={formatInt} cur={current.counted.length} prev={previous.counted.length} prevLabel={PREVIOUS_LABEL[period]} />
         <Kpi label="Prestations" value={current.services} format={formatInt} cur={current.services} prev={previous.services} prevLabel={PREVIOUS_LABEL[period]} />
         <Kpi label="Panier moyen" value={current.counted.length ? current.revenue / current.counted.length : null} format={formatEur} />
@@ -190,7 +199,7 @@ export default function StatsPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="p-4">
-          <h2 className="mb-3 font-semibold">Par prestation</h2>
+          <h2 className="mb-3 font-semibold">Par prestation <span className="text-sm font-normal text-muted">(hors suppléments)</span></h2>
           {byService.length === 0 ? <Empty /> : (
             <ul className="space-y-3">
               {byService.map(({ service, count, revenue }) => (
@@ -202,7 +211,7 @@ export default function StatsPage() {
                     <span className="w-20 text-right font-medium">{formatEur(revenue)}</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-bg">
-                    <div className="grow-x h-full rounded-full transition-[width] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]" style={{ width: `${current.revenue ? (revenue / current.revenue) * 100 : 0}%`, background: service?.color ?? '#8a8a8a' }} />
+                    <div className="grow-x h-full rounded-full transition-[width] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]" style={{ width: `${current.servicesRevenue ? (revenue / current.servicesRevenue) * 100 : 0}%`, background: service?.color ?? '#8a8a8a' }} />
                   </div>
                 </li>
               ))}

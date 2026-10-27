@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BarChart3, CalendarDays, House, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Users, WifiOff } from 'lucide-react'
+import { BarChart3, CalendarDays, House, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Table2, Users, WifiOff } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useOnline } from '../lib/useOnline'
 
+// short : libellé de la barre d'onglets iPhone, où 6 onglets se partagent la largeur
 const NAV = [
   { to: '/', label: 'Accueil', icon: House, end: true },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays, end: false },
   { to: '/clientes', label: 'Clientes', icon: Users, end: false },
-  { to: '/stats', label: 'Statistiques', icon: BarChart3, end: false },
-  { to: '/parametres', label: 'Paramètres', icon: Settings, end: false },
+  { to: '/stats', label: 'Statistiques', short: 'Stats', icon: BarChart3, end: true },
+  { to: '/stats/tableau', label: 'Tableau', icon: Table2, end: false },
+  { to: '/parametres', label: 'Paramètres', short: 'Réglages', icon: Settings, end: false },
 ]
 
 const COLLAPSED_KEY = 'sidebar-collapsed'
@@ -103,24 +105,25 @@ export default function Layout() {
         )}
         <main className={clsx('min-h-0 flex-1 overflow-y-auto', online && 'pt-safe')}>
           {/* key : rejoue l'animation d'entrée à chaque changement d'onglet (pas entre deux fiches clientes) */}
-          <div key={pathname.split('/')[1]} className="page-enter h-full">
+          <div key={pathname.split('/')[1] === 'clientes' ? 'clientes' : pathname} className="page-enter h-full">
             <Outlet />
           </div>
         </main>
 
         {/* Barre d'onglets : iPhone */}
         <nav className="pb-safe flex border-t border-line bg-surface md:hidden">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
+          {NAV.map(({ to, label, short, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
+              aria-label={short ? label : undefined}
               className={({ isActive }) =>
-                clsx('group flex flex-1 flex-col items-center gap-0.5 py-2 text-xs transition-colors', isActive ? 'text-accent' : 'text-muted')
+                clsx('group flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-xs transition-colors', isActive ? 'text-accent' : 'text-muted')
               }
             >
               <Icon size={22} className="transition-transform duration-150 group-active:scale-85" />
-              {label}
+              <span className="max-w-full truncate">{short ?? label}</span>
             </NavLink>
           ))}
         </nav>

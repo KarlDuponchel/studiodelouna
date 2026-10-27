@@ -11,12 +11,15 @@ export function formatDuration(min: number) {
   return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`
 }
 
-/** Montant d'un RDV : prix personnalisé s'il existe, sinon somme des prestations, plus les suppléments. */
+/** Prix des prestations d'un RDV : prix personnalisé s'il existe, sinon leur somme (hors suppléments). */
+export function appointmentServicesPrice(a: Pick<Appointment, 'custom_price' | 'appointment_services'>) {
+  if (a.custom_price != null) return Number(a.custom_price)
+  return a.appointment_services.reduce((sum, s) => sum + Number(s.price), 0)
+}
+
+/** Montant total d'un RDV : prestations + suppléments. */
 export function appointmentTotal(a: Pick<Appointment, 'custom_price' | 'supplement' | 'appointment_services'>) {
-  const base = a.custom_price != null
-    ? Number(a.custom_price)
-    : a.appointment_services.reduce((sum, s) => sum + Number(s.price), 0)
-  return base + Number(a.supplement ?? 0)
+  return appointmentServicesPrice(a) + Number(a.supplement ?? 0)
 }
 
 /** Plage horaire affichée dans l'agenda : un RDV en dehors n'y est pas visible */
