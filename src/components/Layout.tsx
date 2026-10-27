@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BarChart3, CalendarDays, House, LogOut, PanelLeftClose, PanelLeftOpen, Settings, WifiOff } from 'lucide-react'
+import { BarChart3, CalendarDays, House, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Users, WifiOff } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useOnline } from '../lib/useOnline'
@@ -8,6 +8,7 @@ import { useOnline } from '../lib/useOnline'
 const NAV = [
   { to: '/', label: 'Accueil', icon: House, end: true },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays, end: false },
+  { to: '/clientes', label: 'Clientes', icon: Users, end: false },
   { to: '/stats', label: 'Statistiques', icon: BarChart3, end: false },
   { to: '/parametres', label: 'Paramètres', icon: Settings, end: false },
 ]
@@ -101,8 +102,8 @@ export default function Layout() {
           </div>
         )}
         <main className={clsx('min-h-0 flex-1 overflow-y-auto', online && 'pt-safe')}>
-          {/* key : rejoue l'animation d'entrée à chaque changement d'onglet */}
-          <div key={pathname} className="page-enter h-full">
+          {/* key : rejoue l'animation d'entrée à chaque changement d'onglet (pas entre deux fiches clientes) */}
+          <div key={pathname.split('/')[1]} className="page-enter h-full">
             <Outlet />
           </div>
         </main>

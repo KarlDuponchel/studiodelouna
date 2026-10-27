@@ -11,7 +11,7 @@ import { useAppointments, useCloseAppointment, usePaymentMethods, useServices, u
 import type { Appointment, Service, Status } from '../lib/types'
 import { appointmentTotal, formatDuration, formatEur, supplementStep } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
-import { Card, ColorDot, ErrorText } from '../components/ui'
+import { Card, ColorDot, ErrorText, Tile } from '../components/ui'
 
 /** Heure courante, rafraîchie toutes les 30 s */
 function useNow() {
@@ -167,16 +167,6 @@ export default function HomePage() {
 
       <AppointmentSheet target={target} onClose={() => setTarget(null)} />
     </div>
-  )
-}
-
-function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <Card className="px-3 py-2.5">
-      <p className="text-xs text-muted">{label}</p>
-      <p className="truncate text-lg font-semibold tabular-nums">{value}</p>
-      {sub && <p className="truncate text-xs text-muted">{sub}</p>}
-    </Card>
   )
 }
 

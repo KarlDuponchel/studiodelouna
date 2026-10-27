@@ -282,7 +282,7 @@ function ServiceForm({ initial, onDone }: { initial: Partial<Service>; onDone: (
         <Field label="Suppléments (€)" hint="Facultatif : montant proposé en 1× et 2× à la clôture du RDV">
           <Input inputMode="decimal" value={supplement} onChange={(e) => setSupplement(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="5" />
         </Field>
-        <Field label="Couleur dans le calendrier"><ColorPicker value={color} onChange={setColor} palette={PALETTE} /></Field>
+        <Field label="Couleur dans le calendrier" group><ColorPicker value={color} onChange={setColor} palette={PALETTE} /></Field>
         {initial.id && <p className="text-xs text-muted">Un changement de prix ne modifie pas les rendez-vous déjà enregistrés.</p>}
         <ErrorText error={save.error} />
       </div>
@@ -355,7 +355,7 @@ function StatusForm({ initial, onDone }: { initial: Partial<Status>; onDone: () 
           <Toggle label="Proposer de reprogrammer" checked={reschedule} onChange={setReschedule} />
           <p className="text-xs text-muted">Sur l'accueil, ce bouton ouvre le choix d'une nouvelle date et repasse le RDV au statut par défaut.</p>
         </div>
-        <Field label="Couleur"><ColorPicker value={color} onChange={setColor} palette={PALETTE} /></Field>
+        <Field label="Couleur" group><ColorPicker value={color} onChange={setColor} palette={PALETTE} /></Field>
         <ErrorText error={save.error} />
       </div>
     </Sheet>

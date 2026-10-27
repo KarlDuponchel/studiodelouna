@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import type { Appointment, AppointmentInput, Client, DayOff, PaymentMethod, Service, Status } from './types'
+import type { Appointment, AppointmentInput, Client, ClientWithLastVisit, DayOff, PaymentMethod, Service, Status } from './types'
 
 function unwrap<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
   if (error) throw new Error(error.message)
@@ -129,6 +129,22 @@ export function useClientSearch(term: string) {
   })
 }
 
+/** Toutes les clientes, avec la date de leur RDV le plus récent */
+export function useClients() {
+  return useQuery({
+    queryKey: ['clients', 'all'],
+    queryFn: async () =>
+      unwrap(
+        await supabase
+          .from('clients')
+          .select('id, name, instagram, appointments(start_at)')
+          .order('name')
+          .order('start_at', { referencedTable: 'appointments', ascending: false })
+          .limit(1, { referencedTable: 'appointments' }),
+      ) as ClientWithLastVisit[],
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Rendez-vous
 // ---------------------------------------------------------------------------
@@ -148,6 +164,22 @@ export function useAppointments(from: string | null, to: string | null) {
           .lt('start_at', to!)
           .gt('end_at', from!)
           .order('start_at'),
+      ) as unknown as Appointment[],
+  })
+}
+
+/** Historique d'une cliente, du plus récent au plus ancien */
+export function useClientAppointments(clientId: string | null) {
+  return useQuery({
+    queryKey: ['appointments', 'client', clientId],
+    enabled: Boolean(clientId),
+    queryFn: async () =>
+      unwrap(
+        await supabase
+          .from('appointments')
+          .select(APPOINTMENT_SELECT)
+          .eq('client_id', clientId!)
+          .order('start_at', { ascending: false }),
       ) as unknown as Appointment[],
   })
 }

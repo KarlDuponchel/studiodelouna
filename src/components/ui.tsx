@@ -27,13 +27,18 @@ export function Button({ variant = 'primary', className, ...props }: ButtonProps
   )
 }
 
-export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
+/**
+ * `group` : pour un contenu à plusieurs contrôles (ex. ColorPicker). Un <label> ne doit
+ * contenir qu'un champ, sinon Safari peut renvoyer le tap vers le premier bouton.
+ */
+export function Field({ label, hint, group, children }: { label: string; hint?: ReactNode; group?: boolean; children: ReactNode }) {
+  const Tag = group ? 'div' : 'label'
   return (
-    <label className="block">
+    <Tag className="block" role={group ? 'group' : undefined} aria-label={group ? label : undefined}>
       <span className="mb-1 block text-sm font-medium text-muted">{label}</span>
       {children}
       {hint && <span className="mt-1 block text-xs text-muted">{hint}</span>}
-    </label>
+    </Tag>
   )
 }
 
@@ -146,6 +151,7 @@ export function Sheet({
 }) {
   const [closing, setClosing] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const backdropPressed = useRef(false)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
@@ -177,7 +183,18 @@ export function Sheet({
   // Portail : la popup ne dépend pas du contexte d'empilement de la page (animations, z-index)
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6" data-closing={closing || undefined}>
-      <div className="sheet-backdrop absolute inset-0 bg-black/30" onClick={close} />
+      {/* Ferme seulement si le tap a commencé sur le fond : sur iPad, le tap qui referme
+          le sélecteur de couleur natif peut retomber ici et fermait le panneau sans enregistrer */}
+      <div
+        className="sheet-backdrop absolute inset-0 bg-black/30"
+        onPointerDown={(e) => {
+          backdropPressed.current = e.target === e.currentTarget && !(document.activeElement instanceof HTMLInputElement && document.activeElement.type === 'color')
+        }}
+        onClick={() => {
+          if (backdropPressed.current) close()
+          backdropPressed.current = false
+        }}
+      />
       <div
         ref={panelRef}
         role="dialog"
@@ -214,11 +231,23 @@ export function Card({ children, className }: { children: ReactNode; className?:
   return <div className={clsx('rounded-2xl border border-line bg-surface', className)}>{children}</div>
 }
 
+/** Chiffre clé : libellé, valeur, précision facultative */
+export function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <Card className="px-3 py-2.5">
+      <p className="text-xs text-muted">{label}</p>
+      <p className="truncate text-lg font-semibold tabular-nums">{value}</p>
+      {sub && <p className="truncate text-xs text-muted">{sub}</p>}
+    </Card>
+  )
+}
+
 export function ColorDot({ color, size = 12 }: { color: string; size?: number }) {
   return <span className="inline-block shrink-0 rounded-full" style={{ background: color, width: size, height: size }} />
 }
 
 export function ColorPicker({ value, onChange, palette }: { value: string; onChange: (c: string) => void; palette: string[] }) {
+  const custom = !palette.some((c) => c.toLowerCase() === value.toLowerCase())
   return (
     <div className="flex flex-wrap items-center gap-2">
       {palette.map((c) => (
@@ -227,14 +256,28 @@ export function ColorPicker({ value, onChange, palette }: { value: string; onCha
           type="button"
           onClick={() => onChange(c)}
           aria-label={c}
-          className={clsx('h-9 w-9 rounded-full border-2 transition', value === c ? 'border-ink scale-110' : 'border-transparent')}
+          className={clsx('h-9 w-9 rounded-full border-2 transition', value.toLowerCase() === c.toLowerCase() ? 'border-ink scale-110' : 'border-transparent')}
           style={{ background: c }}
         />
       ))}
-      <label className="relative h-9 w-9 cursor-pointer overflow-hidden rounded-full border border-line" title="Autre couleur">
-        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
-        <span className="flex h-full w-full items-center justify-center text-lg text-muted">+</span>
-      </label>
+      {/* Couleur libre : la pastille prend la couleur choisie pour montrer qu'elle est retenue */}
+      <span
+        className={clsx(
+          'relative h-9 w-9 overflow-hidden rounded-full border-2 transition',
+          custom ? 'scale-110 border-ink' : 'border-line',
+        )}
+        style={custom ? { background: value } : undefined}
+        title="Autre couleur"
+      >
+        <input
+          type="color"
+          aria-label="Autre couleur"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        />
+        {!custom && <span className="pointer-events-none flex h-full w-full items-center justify-center text-lg text-muted">+</span>}
+      </span>
     </div>
   )
 }

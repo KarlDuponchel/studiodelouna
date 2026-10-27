@@ -42,6 +42,11 @@ export type Client = {
   instagram: string | null
 }
 
+export type ClientWithLastVisit = Client & {
+  /** Le RDV le plus récent seulement (passé ou à venir) */
+  appointments: { start_at: string }[]
+}
+
 export type AppointmentService = {
   service_id: string
   price: number
