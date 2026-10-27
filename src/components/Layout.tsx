@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BarChart3, CalendarDays, LogOut, Settings, WifiOff } from 'lucide-react'
+import { BarChart3, CalendarDays, LogOut, PanelLeftClose, PanelLeftOpen, Settings, WifiOff } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useOnline } from '../lib/useOnline'
@@ -10,18 +11,57 @@ const NAV = [
   { to: '/parametres', label: 'Paramètres', icon: Settings, end: false },
 ]
 
+const COLLAPSED_KEY = 'sidebar-collapsed'
+
+function readCollapsed() {
+  try {
+    return window.localStorage.getItem(COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 export default function Layout() {
   const { signOut } = useAuth()
   const online = useOnline()
   const { pathname } = useLocation()
+  const [collapsed, setCollapsed] = useState(readCollapsed)
+
+  function toggleCollapsed() {
+    const next = !collapsed
+    setCollapsed(next)
+    try {
+      window.localStorage.setItem(COLLAPSED_KEY, next ? '1' : '0')
+    } catch {
+      // Stockage indisponible (navigation privée) : l'état reste en mémoire
+    }
+  }
 
   return (
     <div className="flex h-full">
-      {/* Barre latérale : iPad et desktop */}
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-line bg-surface px-3 py-4 md:flex">
-        <div className="mb-6 flex items-center gap-2 px-2">
-          <img src="/icon.svg" alt="" className="h-8 w-8" />
-          <span className="text-lg leading-tight font-semibold">Studio de Louna</span>
+      {/* Barre latérale : iPad et desktop. Repliée, seules les icônes restent visibles */}
+      <aside
+        className={clsx(
+          'hidden shrink-0 flex-col overflow-hidden border-r border-line bg-surface px-3 py-4 transition-[width] duration-200 ease-out md:flex',
+          collapsed ? 'w-17' : 'w-56',
+        )}
+        // FullCalendar ne suit que le redimensionnement de la fenêtre
+        onTransitionEnd={(e) => e.target === e.currentTarget && window.dispatchEvent(new Event('resize'))}
+      >
+        <div className="mb-6 flex items-center gap-2">
+          <div className={clsx('flex min-w-0 flex-1 items-center gap-2 pl-2', collapsed && 'hidden')}>
+            <img src="/icon.svg" alt="" className="h-8 w-8 shrink-0" />
+            <span className="truncate text-lg leading-tight font-semibold">Studio de Louna</span>
+          </div>
+          <button
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? 'Déplier le menu' : 'Replier le menu'}
+            aria-expanded={!collapsed}
+            title={collapsed ? 'Déplier le menu' : 'Replier le menu'}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted transition hover:bg-bg active:scale-90"
+          >
+            {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          </button>
         </div>
         <nav className="flex flex-1 flex-col gap-1">
           {NAV.map(({ to, label, icon: Icon, end }) => (
@@ -29,21 +69,27 @@ export default function Layout() {
               key={to}
               to={to}
               end={end}
+              title={collapsed ? label : undefined}
+              aria-label={collapsed ? label : undefined}
               className={({ isActive }) =>
                 clsx(
-                  'flex min-h-11 items-center gap-3 rounded-xl px-3 font-medium transition-colors',
+                  'flex min-h-11 items-center gap-3 rounded-xl px-3 font-medium whitespace-nowrap transition-colors',
                   isActive ? 'bg-accent-soft text-accent' : 'text-ink hover:bg-bg',
                 )
               }
             >
-              <Icon size={20} />
-              {label}
+              <Icon size={20} className="shrink-0" />
+              <span className={clsx(collapsed && 'sr-only')}>{label}</span>
             </NavLink>
           ))}
         </nav>
-        <button onClick={signOut} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-muted hover:bg-bg">
-          <LogOut size={20} />
-          Déconnexion
+        <button
+          onClick={signOut}
+          title={collapsed ? 'Déconnexion' : undefined}
+          className="flex min-h-11 items-center gap-3 rounded-xl px-3 whitespace-nowrap text-muted hover:bg-bg"
+        >
+          <LogOut size={20} className="shrink-0" />
+          <span className={clsx(collapsed && 'sr-only')}>Déconnexion</span>
         </button>
       </aside>
 
