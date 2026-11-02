@@ -4,7 +4,7 @@ import { AlertTriangle, Trash2 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useDaysOff, useDeleteAppointment, usePaymentMethods, useSaveAppointment, useServices, useStatuses } from '../lib/queries'
 import type { Appointment } from '../lib/types'
-import { formatDuration, formatEur, isOutsideAgendaHours, QUICK_DURATIONS, supplementStep } from '../lib/format'
+import { appointmentCountsInStats, formatDuration, formatEur, isOutsideAgendaHours, QUICK_DURATIONS, supplementStep } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
 import ClientAutocomplete from './ClientAutocomplete'
 import ServicePicker from './ServicePicker'
@@ -71,6 +71,8 @@ function AppointmentForm({ target, onDone }: { target: SheetTarget; onDone: () =
 
   const selectedServices = serviceIds.map((id) => services.find((s) => s.id === id)).filter((s) => s !== undefined)
   const servicesDuration = selectedServices.reduce((sum, s) => sum + (s.duration_min ?? 0), 0)
+  // RDV perso (ex. « RDV coiffeur ») : le nom n'est qu'un libellé, aucune fiche cliente n'est créée
+  const personal = serviceIds.length > 0 && !appointmentCountsInStats({ appointment_services: serviceIds.map((service_id) => ({ service_id })) }, services)
 
   // Prix : figé pour les prestations déjà enregistrées, prix courant pour les nouvelles
   const servicesTotal = selectedServices.reduce((sum, s) => {
@@ -142,11 +144,12 @@ function AppointmentForm({ target, onDone }: { target: SheetTarget; onDone: () =
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Cliente">
+        <Field label={personal ? 'Libellé' : 'Cliente'} hint={personal ? 'RDV perso : pas de fiche cliente' : undefined}>
           <ClientAutocomplete
             name={clientName}
             clientId={clientId}
             disabled={readOnly}
+            personal={personal}
             onChange={(name, client) => {
               setClientName(name)
               setClientId(client?.id ?? null)
@@ -154,16 +157,18 @@ function AppointmentForm({ target, onDone }: { target: SheetTarget; onDone: () =
             }}
           />
         </Field>
-        <Field label="Instagram">
-          <Input
-            value={instagram}
-            disabled={readOnly}
-            placeholder="@pseudo"
-            autoCapitalize="off"
-            autoCorrect="off"
-            onChange={(e) => setInstagram(e.target.value)}
-          />
-        </Field>
+        {!personal && (
+          <Field label="Instagram">
+            <Input
+              value={instagram}
+              disabled={readOnly}
+              placeholder="@pseudo"
+              autoCapitalize="off"
+              autoCorrect="off"
+              onChange={(e) => setInstagram(e.target.value)}
+            />
+          </Field>
+        )}
       </div>
 
       <div className="space-y-3">

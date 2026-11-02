@@ -1,6 +1,8 @@
+import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { nameMatches } from './format'
 import { supabase } from './supabase'
-import type { Appointment, AppointmentInput, Client, ClientWithLastVisit, DayOff, PaymentMethod, Service, Status } from './types'
+import type { Appointment, AppointmentInput, ClientWithLastVisit, DayOff, PaymentMethod, Service, Status } from './types'
 
 function unwrap<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
   if (error) throw new Error(error.message)
@@ -108,25 +110,19 @@ export function useDeleteDayOff() {
 // Clientes
 // ---------------------------------------------------------------------------
 
-/** Autocomplétion : à partir de 3 lettres, sur le début du nom ou d'un mot du nom. */
+/**
+ * Autocomplétion : à partir de 3 caractères, sur le début du nom ou d'un mot du nom,
+ * sans tenir compte des accents. Filtre la liste complète déjà en cache, ce qui gère
+ * aussi les noms à caractères spéciaux (« __karl »).
+ */
 export function useClientSearch(term: string) {
   const q = term.trim()
-  return useQuery({
-    queryKey: ['clients', 'search', q.toLowerCase()],
-    enabled: q.length >= 3,
-    staleTime: 30_000,
-    queryFn: async () => {
-      const safe = q.replace(/[%_,()"\\]/g, '')
-      return unwrap(
-        await supabase
-          .from('clients')
-          .select('id, name, instagram')
-          .or(`name.ilike."${safe}%",name.ilike."% ${safe}%"`)
-          .order('name')
-          .limit(8),
-      ) as Client[]
-    },
-  })
+  const { data: clients = [] } = useClients()
+  const data = useMemo(
+    () => (q.length >= 3 ? clients.filter((c) => nameMatches(c.name, q)).slice(0, 8) : []),
+    [clients, q],
+  )
+  return { data }
 }
 
 /** Toutes les clientes, avec la date de leur RDV le plus récent */
@@ -142,6 +138,21 @@ export function useClients() {
           .order('start_at', { referencedTable: 'appointments', ascending: false })
           .limit(1, { referencedTable: 'appointments' }),
       ) as ClientWithLastVisit[],
+  })
+}
+
+/** Supprime la fiche. Ses RDV restent dans l'agenda (détachés), sauf si `withAppointments`. */
+export function useDeleteClient() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, withAppointments }: { id: string; withAppointments: boolean }) => {
+      if (withAppointments) unwrap(await supabase.from('appointments').delete().eq('client_id', id).select())
+      unwrap(await supabase.from('clients').delete().eq('id', id).select())
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clients'] })
+      qc.invalidateQueries({ queryKey: ['appointments'] })
+    },
   })
 }
 

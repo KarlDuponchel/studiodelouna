@@ -22,15 +22,31 @@ export function appointmentTotal(a: Pick<Appointment, 'custom_price' | 'suppleme
   return appointmentServicesPrice(a) + Number(a.supplement ?? 0)
 }
 
+/** Recherche sans tenir compte des accents ni de la casse */
+export const normalizeSearch = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+/**
+ * Le nom commence par la saisie, ou l'un de ses mots commence par elle.
+ * Tout ce qui n'est ni lettre ni chiffre sépare les mots : « __karl » est trouvé par « karl ».
+ */
+export function nameMatches(name: string, query: string) {
+  const n = normalizeSearch(name)
+  const q = normalizeSearch(query.trim())
+  if (n.startsWith(q)) return true
+  const core = q.replace(/^[^a-z0-9]+/, '')
+  return core !== '' && n.split(/[^a-z0-9]+/).some((w) => w.startsWith(core))
+}
+
 /** Une prestation compte dans les stats sauf si elle est explicitement exclue (colonne absente : elle compte) */
-export const serviceCountsInStats = (as: AppointmentService, services: Service[]) =>
+export const serviceCountsInStats = (as: Pick<AppointmentService, 'service_id'>, services: Service[]) =>
   services.find((s) => s.id === as.service_id)?.counts_in_stats !== false
 
 /**
  * Un RDV compte dans les stats s'il a au moins une prestation qui compte.
- * Un RDV fait uniquement de prestations exclues (ex. « Perso ») est ignoré partout.
+ * Un RDV fait uniquement de prestations exclues (ex. « Perso ») est ignoré partout,
+ * et n'est pas rattaché à une fiche cliente.
  */
-export function appointmentCountsInStats(a: Pick<Appointment, 'appointment_services'>, services: Service[]) {
+export function appointmentCountsInStats(a: { appointment_services: Pick<AppointmentService, 'service_id'>[] }, services: Service[]) {
   return !a.appointment_services.length || a.appointment_services.some((as) => serviceCountsInStats(as, services))
 }
 

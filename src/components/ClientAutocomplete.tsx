@@ -8,17 +8,19 @@ type Props = {
   name: string
   clientId: string | null
   disabled?: boolean
+  /** RDV perso : simple libellé, sans suggestions ni fiche cliente */
+  personal?: boolean
   onChange: (name: string, client: Client | null) => void
 }
 
 /** Champ "Cliente" : propose les clientes connues dès 3 lettres saisies. */
-export default function ClientAutocomplete({ name, clientId, disabled, onChange }: Props) {
+export default function ClientAutocomplete({ name, clientId, disabled, personal, onChange }: Props) {
   const [focused, setFocused] = useState(false)
-  const { data: matches = [] } = useClientSearch(clientId ? '' : name)
+  const { data: matches = [] } = useClientSearch(clientId || personal ? '' : name)
 
   const trimmed = name.trim()
   const exact = matches.find((c) => c.name.toLowerCase() === trimmed.toLowerCase())
-  const showList = focused && !clientId && trimmed.length >= 3
+  const showList = focused && !clientId && !personal && trimmed.length >= 3
 
   return (
     <div className="relative">

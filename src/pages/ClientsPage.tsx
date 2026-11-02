@@ -2,16 +2,13 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { format, formatDistanceToNowStrict } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { AtSign, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { AtSign, ChevronLeft, ChevronRight, Search, Trash2 } from 'lucide-react'
 import { clsx } from 'clsx'
 import AppointmentSheet, { type SheetTarget } from '../components/AppointmentSheet'
-import { useClientAppointments, useClients, usePaymentMethods, useServices, useStatuses } from '../lib/queries'
+import { useClientAppointments, useClients, useDeleteClient, usePaymentMethods, useServices, useStatuses } from '../lib/queries'
 import type { Appointment, ClientWithLastVisit } from '../lib/types'
-import { appointmentTotal, formatEur, appointmentCountsInStats } from '../lib/format'
-import { Card, ColorDot, Input, Tile } from '../components/ui'
-
-/** Recherche sans tenir compte des accents ni de la casse */
-const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+import { appointmentTotal, formatEur, appointmentCountsInStats, normalizeSearch as normalize } from '../lib/format'
+import { Button, Card, ColorDot, ErrorText, Input, Tile, Toggle } from '../components/ui'
 
 export default function ClientsPage() {
   const { id } = useParams()
@@ -190,7 +187,53 @@ function ClientDetail({ client }: { client: ClientWithLastVisit }) {
         )}
       </section>
 
+      <DeleteClient clientId={client.id} appointmentCount={appointments.length} onDeleted={() => navigate('/clientes', { replace: true })} />
+
       <AppointmentSheet target={target} onClose={() => setTarget(null)} />
     </div>
+  )
+}
+
+/** Suppression de la fiche, avec ou sans ses RDV (par défaut ils restent dans l'agenda et les stats) */
+function DeleteClient({ clientId, appointmentCount, onDeleted }: { clientId: string; appointmentCount: number; onDeleted: () => void }) {
+  const remove = useDeleteClient()
+  const [confirm, setConfirm] = useState(false)
+  const [withAppointments, setWithAppointments] = useState(false)
+
+  async function doDelete() {
+    await remove.mutateAsync({ id: clientId, withAppointments })
+    onDeleted()
+  }
+
+  if (!confirm) {
+    return (
+      <Button variant="danger" onClick={() => setConfirm(true)}>
+        <Trash2 size={18} /> Supprimer la cliente
+      </Button>
+    )
+  }
+
+  return (
+    <Card className="pop-in space-y-3 p-4">
+      <p className="text-sm">
+        {appointmentCount === 0
+          ? 'La fiche sera supprimée définitivement.'
+          : withAppointments
+            ? `La fiche et ${appointmentCount === 1 ? 'son rendez-vous' : `ses ${appointmentCount} rendez-vous`} seront supprimés définitivement, y compris des statistiques.`
+            : `La fiche sera supprimée. ${appointmentCount === 1 ? 'Son rendez-vous reste' : `Ses ${appointmentCount} rendez-vous restent`} dans l'agenda et les statistiques, sans fiche cliente.`}
+      </p>
+      {appointmentCount > 0 && (
+        <Toggle label={`Supprimer aussi ${appointmentCount === 1 ? 'son RDV' : `ses ${appointmentCount} RDV`}`} checked={withAppointments} onChange={setWithAppointments} />
+      )}
+      <ErrorText error={remove.error} />
+      <div className="flex gap-2">
+        <Button variant="danger" onClick={doDelete} disabled={remove.isPending}>
+          Confirmer la suppression
+        </Button>
+        <Button variant="ghost" onClick={() => setConfirm(false)}>
+          Annuler
+        </Button>
+      </div>
+    </Card>
   )
 }
