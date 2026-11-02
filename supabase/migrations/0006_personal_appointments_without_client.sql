@@ -104,26 +104,34 @@ $$;
 -- Nettoyage des RDV perso déjà saisis
 -- ---------------------------------------------------------------------------
 
-create temporary table personal_appointments as
-select a.id, a.client_id
-from appointments a
+-- Chaque requête se suffit à elle-même (le SQL Editor ne garde pas d'état entre
+-- les instructions) et le tout peut être réexécuté sans risque.
+-- RDV perso : au moins une prestation, et aucune qui compte dans les stats.
+
+-- Fiches créées uniquement par des RDV perso (« RDV coiffeur »…) : supprimées
+-- (leurs RDV sont détachés par la clé étrangère « on delete set null »)
+with personal as (
+  select a.id, a.client_id
+  from appointments a
+  where a.client_id is not null
+    and exists (select 1 from appointment_services x where x.appointment_id = a.id)
+    and not exists (
+      select 1 from appointment_services x join services s on s.id = x.service_id
+      where x.appointment_id = a.id and s.counts_in_stats
+    )
+)
+delete from clients c
+where c.id in (select client_id from personal)
+  and not exists (
+    select 1 from appointments a
+    where a.client_id = c.id and a.id not in (select id from personal)
+  );
+
+-- Les autres RDV perso sont détachés de leur cliente
+update appointments a set client_id = null
 where a.client_id is not null
   and exists (select 1 from appointment_services x where x.appointment_id = a.id)
   and not exists (
     select 1 from appointment_services x join services s on s.id = x.service_id
     where x.appointment_id = a.id and s.counts_in_stats
   );
-
--- Fiches créées uniquement par des RDV perso (« RDV coiffeur »…) : supprimées
-delete from clients c
-where c.id in (select client_id from personal_appointments)
-  and not exists (
-    select 1 from appointments a
-    where a.client_id = c.id and a.id not in (select id from personal_appointments)
-  );
-
--- Les autres RDV perso sont détachés de leur cliente
-update appointments set client_id = null
-where id in (select id from personal_appointments) and client_id is not null;
-
-drop table personal_appointments;
